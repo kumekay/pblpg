@@ -10,12 +10,16 @@
  *   GET  /v1/runs/{run_id}                 — poll: status/output/error
  */
 
-// Secrets live in config.local.js (gitignored); see config.local.js.example.
-var localConfig = require('./config.local.js');
+var CONFIG_PAGE_URL =
+  'https://cdn.jsdelivr.net/gh/kumekay/pblpg@main/permes/config/index.html';
+var STORAGE = {
+  baseUrl: 'permes_base_url',
+  apiKey: 'permes_api_key'
+};
 
 var CONFIG = {
-  baseUrl: localConfig.baseUrl,
-  apiKey: localConfig.apiKey,
+  baseUrl: '',
+  apiKey: '',
   maxThreads: 16,
   pollMs: 5000,
   runTimeoutMs: 15 * 60 * 1000,
@@ -23,14 +27,35 @@ var CONFIG = {
   chunkMaxBytes: 440
 };
 
-// Optional runtime overrides (handy for QEMU/local testing):
-//   localStorage.setItem('permes_base_url', 'http://127.0.0.1:8642')
-try {
-  var ovBase = localStorage.getItem('permes_base_url');
-  if (ovBase) CONFIG.baseUrl = ovBase;
-  var ovKey = localStorage.getItem('permes_api_key');
-  if (ovKey) CONFIG.apiKey = ovKey;
-} catch (e) { /* no localStorage */ }
+function loadConfig() {
+  try {
+    CONFIG.baseUrl = localStorage.getItem(STORAGE.baseUrl) || '';
+    CONFIG.apiKey = localStorage.getItem(STORAGE.apiKey) || '';
+  } catch (e) { /* no localStorage */ }
+}
+
+function saveConfig(baseUrl, apiKey) {
+  baseUrl = String(baseUrl || '').trim().replace(/\/+$/, '');
+  apiKey = String(apiKey || '').trim();
+  if (!/^https:\/\//i.test(baseUrl) || !apiKey) return false;
+
+  try {
+    localStorage.setItem(STORAGE.baseUrl, baseUrl);
+    localStorage.setItem(STORAGE.apiKey, apiKey);
+  } catch (e) {
+    log('could not persist configuration');
+    return false;
+  }
+  CONFIG.baseUrl = baseUrl;
+  CONFIG.apiKey = apiKey;
+  return true;
+}
+
+function isConfigured() {
+  return !!(CONFIG.baseUrl && CONFIG.apiKey);
+}
+
+loadConfig();
 
 // System prompt for threads created from the watch: keep answers watch-sized.
 var WATCH_SYSTEM_PROMPT =
@@ -58,6 +83,10 @@ function authHeaders() {
 }
 
 function request(method, path, body, cb) {
+  if (!isConfigured()) {
+    cb('URL and token must be configured first.', null);
+    return;
+  }
   var xhr = new XMLHttpRequest();
   xhr.open(method, CONFIG.baseUrl + path, true);
   var headers = authHeaders();
@@ -233,9 +262,9 @@ function pushThreadList() {
   request('GET', '/api/sessions?limit=40', null, function (err, data) {
     if (err || !data || !data.data) {
       log('list failed: ' + err);
-      sendError(err || 'no session data');
       queueSend({ OP: OP.LIST_BEGIN, COUNT: 0 });
       queueSend({ OP: OP.LIST_END });
+      sendError(err || 'no session data');
       return;
     }
     var active = activeThreads();
@@ -288,6 +317,8 @@ function persistRuns() {
 }
 
 function loadRuns() {
+  if (loadRuns.loaded) return;
+  loadRuns.loaded = true;
   try {
     var raw = localStorage.getItem('permes_runs');
     if (raw) runs = JSON.parse(raw) || {};
@@ -362,6 +393,46 @@ function openThread(threadId) {
 
 Pebble.addEventListener('ready', function () {
   log('ready');
+  if (isConfigured()) {
+    loadRuns();
+    pushThreadList();
+  } else {
+    queueSend({ OP: OP.LIST_BEGIN, COUNT: 0 });
+    queueSend({ OP: OP.LIST_END });
+    sendError('URL and token must be configured first.');
+  }
+});
+
+Pebble.addEventListener('showConfiguration', function () {
+  // The fragment is not sent to the config page host, so the secret stays local
+  // to the phone webview while still allowing the form to restore its values.
+  var current = encodeURIComponent(JSON.stringify({
+    baseUrl: CONFIG.baseUrl,
+    apiKey: CONFIG.apiKey
+  }));
+  Pebble.openURL(CONFIG_PAGE_URL + '#' + current);
+});
+
+Pebble.addEventListener('webviewclosed', function (e) {
+  if (!e || !e.response) return; // user cancelled
+
+  var data;
+  try {
+    data = JSON.parse(e.response);
+  } catch (plainError) {
+    try {
+      data = JSON.parse(decodeURIComponent(e.response));
+    } catch (encodedError) {
+      log('invalid configuration response');
+      return;
+    }
+  }
+
+  if (!data || typeof data !== 'object' || !saveConfig(data.baseUrl, data.apiKey)) {
+    log('configuration rejected');
+    return;
+  }
+  log('configuration saved');
   loadRuns();
   pushThreadList();
 });

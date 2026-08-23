@@ -4,6 +4,7 @@
 static Thread s_threads[MAX_THREADS];
 static int s_num_threads = 0;
 static int s_open_index = -1;
+static char s_error[201];
 
 // Reply assembly (chunked)
 static char s_chunks[REPLY_CHUNK_MAX][512];
@@ -102,6 +103,7 @@ void store_send_message(const char *id, const char *text) {
 // ---------------------------------------------------------------------------
 
 int store_count(void) { return s_num_threads; }
+const char *store_error(void) { return s_error; }
 
 Thread *store_get(int index) {
   if (index < 0 || index >= s_num_threads) return NULL;
@@ -191,6 +193,7 @@ static void prv_inbox_received(DictionaryIterator *iter, void *ctx) {
       int count = count_t ? (int)count_t->value->uint16 : 0;
       if (count > MAX_THREADS) count = MAX_THREADS;
       s_num_threads = 0;
+      s_error[0] = '\0';
       memset(s_threads, 0, sizeof(s_threads));
       if (count == 0 && s_list_cb) s_list_cb();
       break;
@@ -293,7 +296,10 @@ static void prv_inbox_received(DictionaryIterator *iter, void *ctx) {
 
     case OP_ERROR: {
       Tuple *text_t = t(iter, MESSAGE_KEY_TEXT);
-      store_mark_failed(text_t ? text_t->value->cstring : NULL);
+      const char *error = text_t ? text_t->value->cstring : "Something went wrong";
+      strncpy(s_error, error, sizeof(s_error) - 1);
+      s_error[sizeof(s_error) - 1] = '\0';
+      store_mark_failed(error);
       if (s_detail_cb) s_detail_cb();
       if (s_list_cb) s_list_cb();
       break;

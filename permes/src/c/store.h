@@ -21,6 +21,7 @@ void store_deinit(void);
 
 // Thread list access
 int store_count(void);
+const char *store_error(void); // latest phone-side error, or an empty string
 Thread *store_get(int index);
 int store_find(const char *id);  // returns index or -1
 Thread *store_open_thread(void); // currently open thread or NULL

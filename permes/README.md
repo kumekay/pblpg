@@ -21,8 +21,8 @@ Watch (C)  ⇄  Phone (Pebble app, src/pkjs)  ⇄  HTTPS  ⇄  hermes api_server
   cleans markdown, chunks replies for the watch.
 - **hermes side**: gateway `api_server` platform (OpenAI-compatible REST),
   enabled in `~/.hermes/config.yaml` under `platforms.api_server` with a
-  Bearer key. URL + key live in `src/pkjs/config.local.js` (gitignored;
-  copy `config.local.js.example` and fill in).
+  Bearer key. Set the URL and key from the app's gear/settings entry in the
+  Pebble phone app; pkjs persists them in its local storage.
 
 ### hermes endpoints used
 
@@ -46,12 +46,15 @@ as ≤8 UTF-8-safe chunks of ≤440 bytes; the watch assembles them.
 ## Build & run
 
 ```sh
-cp src/pkjs/config.local.js.example src/pkjs/config.local.js  # first time only
-# edit config.local.js: your hermes front URL + API_SERVER_KEY
 pebble build
 pebble install --emulator emery     # boots QEMU + pypkjs (real pkjs runtime!)
 pebble logs --emulator emery        # C + pkjs logs
 ```
+
+On a phone, open the gear beside **permes**, enter the public HTTPS hermes URL
+and Bearer key, then tap **Save**. The hosted page is
+`permes/config/index.html`; pkjs handles `showConfiguration` and
+`webviewclosed`, validates the response, and stores both values locally.
 
 ### Testing the full flow in QEMU (no mic on the emulator)
 
@@ -64,7 +67,7 @@ pebble screenshot --no-open --emulator emery shot.png
 
 ### Pointing pkjs at a local hermes (QEMU testing)
 
-pkjs reads optional overrides from localStorage; pypkjs persists it to
+pkjs reads its configuration from localStorage; pypkjs persists it to
 `~/Library/Application Support/Pebble SDK/4.33.1/emery/localstorage/<uuid>`
 (dbm.dumb format). Seed before booting the emulator:
 
@@ -72,6 +75,7 @@ pkjs reads optional overrides from localStorage; pypkjs persists it to
 import dbm.dumb
 d = dbm.dumb.open("<...>/localstorage/2d1ee2c8-d0a5-415f-a7e0-213a7250e42b", "c")
 d["permes_base_url"] = "http://127.0.0.1:8642"
+d["permes_api_key"] = "YOUR_API_SERVER_KEY"
 d.close()
 ```
 

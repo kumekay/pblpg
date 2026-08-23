@@ -4,6 +4,19 @@
 
 static Window *s_window;
 static MenuLayer *s_menu;
+static TextLayer *s_error_title;
+static TextLayer *s_error_body;
+
+static void prv_update_error(void) {
+  const char *error = store_error();
+  bool visible = error && error[0];
+  if (s_menu) layer_set_hidden(menu_layer_get_layer(s_menu), visible);
+  if (s_error_title) layer_set_hidden(text_layer_get_layer(s_error_title), !visible);
+  if (s_error_body) {
+    text_layer_set_text(s_error_body, visible ? error : "");
+    layer_set_hidden(text_layer_get_layer(s_error_body), !visible);
+  }
+}
 
 static uint16_t prv_get_num_rows(MenuLayer *menu, uint16_t section, void *ctx) {
   return 1 + store_count();
@@ -22,6 +35,7 @@ static void prv_draw_row(GContext *ctx, const Layer *cell, MenuIndex *idx, void 
 }
 
 static void prv_select(MenuLayer *menu, MenuIndex *idx, void *ctx) {
+  if (store_error()[0]) return;
   if (idx->row == 0) {
     store_request_new();
     detail_window_push();  // content fills in when OP_NEW_OK arrives
@@ -49,10 +63,30 @@ static void prv_window_load(Window *window) {
   menu_layer_set_normal_colors(s_menu, GColorWhite, GColorBlack);
   menu_layer_set_highlight_colors(s_menu, GColorJaegerGreen, GColorWhite);
   layer_add_child(root, menu_layer_get_layer(s_menu));
+
+  s_error_title = text_layer_create(GRect(12, 32, bounds.size.w - 24, 34));
+  text_layer_set_background_color(s_error_title, GColorWhite);
+  text_layer_set_text_color(s_error_title, GColorBlack);
+  text_layer_set_font(s_error_title, fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD));
+  text_layer_set_text_alignment(s_error_title, GTextAlignmentCenter);
+  text_layer_set_text(s_error_title, "Setup required");
+  layer_add_child(root, text_layer_get_layer(s_error_title));
+
+  s_error_body = text_layer_create(GRect(12, 70, bounds.size.w - 24, 110));
+  text_layer_set_background_color(s_error_body, GColorWhite);
+  text_layer_set_text_color(s_error_body, GColorBlack);
+  text_layer_set_font(s_error_body, fonts_get_system_font(FONT_KEY_GOTHIC_24));
+  text_layer_set_text_alignment(s_error_body, GTextAlignmentCenter);
+  layer_add_child(root, text_layer_get_layer(s_error_body));
+  prv_update_error();
 }
 
 static void prv_window_unload(Window *window) {
+  text_layer_destroy(s_error_body);
+  text_layer_destroy(s_error_title);
   menu_layer_destroy(s_menu);
+  s_error_body = NULL;
+  s_error_title = NULL;
   s_menu = NULL;
 }
 
@@ -67,4 +101,5 @@ Window *list_window_create(void) {
 
 void list_window_refresh(void) {
   if (s_menu) menu_layer_reload_data(s_menu);
+  prv_update_error();
 }

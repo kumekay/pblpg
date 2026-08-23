@@ -3,6 +3,6 @@ build/
 .DS_Store
 node_modules/
 
-# local secrets for the phone bridge (see permes/src/pkjs/config.local.js.example)
+# Never commit legacy/local phone bridge secrets. Runtime settings use localStorage.
 permes/src/pkjs/config.local.js
 .lock-waf*

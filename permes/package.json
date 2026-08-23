@@ -16,6 +16,9 @@
     "watchapp": {
       "watchface": false
     },
+    "capabilities": [
+      "configurable"
+    ],
     "messageKeys": {
       "OP": 0,
       "THREAD_ID": 1,

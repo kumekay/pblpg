@@ -66,8 +66,8 @@ Emulator notes (from the skill, worth following):
 
 ### permes/
 
-Watchapp for the **hermes agent** (Valera, Nous Research hermes-agent running
-on this host). C watchapp + pkjs bridge. UUID is fixed in `package.json` —
+Watchapp for a **Hermes agent** (Nous Research hermes-agent running on this
+host). C watchapp + pkjs bridge. UUID is fixed in `package.json` —
 never regenerate it.
 
 - hermes gateway exposes `platforms.api_server` (REST, Bearer key) on

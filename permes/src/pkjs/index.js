@@ -220,7 +220,7 @@ function buildTranscript(messages) {
     var c = cleanText(String(m.content));
     if (!c) continue;
     if (m.role === 'user') fmt.push('You: ' + c);
-    else if (m.role === 'assistant') fmt.push('Valera: ' + c);
+    else if (m.role === 'assistant') fmt.push('Agent: ' + c);
   }
   var out = [];
   var used = 0;

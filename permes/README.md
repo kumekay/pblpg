@@ -1,6 +1,6 @@
 # permes
 
-A Pebble watchapp for talking to the **hermes agent** (Valera) from the watch.
+A Pebble watchapp for talking to a **Hermes agent** from the watch.
 Speak on the watch (Pebble dictation, recognized by the phone app), the agent
 runs on the host, and the reply is rendered on the watch. Multiple hermes
 sessions = multiple parallel threads.

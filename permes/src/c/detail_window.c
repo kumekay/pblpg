@@ -25,8 +25,7 @@ static void prv_render(void) {
   } else if (reply[0]) {
     snprintf(body, sizeof(body), "%s\n\nSELECT: speak", reply);
   } else {
-    snprintf(body, sizeof(body), "No reply yet.\n\nPress SELECT and speak to %s.",
-             th->title[0] ? "Valera" : "the agent");
+    snprintf(body, sizeof(body), "No reply yet.\n\nPress SELECT and speak to the agent.");
   }
   text_layer_set_text(s_body_layer, body);
 

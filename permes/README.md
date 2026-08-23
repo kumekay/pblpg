@@ -7,6 +7,12 @@ sessions = multiple parallel threads.
 
 Target: **Pebble Time 2 (emery / board "obelix")**, 200×228 color.
 
+## Screenshots
+
+| Threads | Conversation |
+|---|---|
+| <img src="screenshots/thread-list.png" width="200" alt="Hermes thread list on Pebble Time 2"> | <img src="screenshots/conversation.png" width="200" alt="Hermes conversation on Pebble Time 2"> |
+
 ## Architecture
 
 ```

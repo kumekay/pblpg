@@ -11,7 +11,7 @@
  */
 
 var CONFIG_PAGE_URL =
-  'https://cdn.jsdelivr.net/gh/kumekay/pblpg@main/permes/config/index.html';
+  'https://kumekay.github.io/pblpg/permes/config/';
 var STORAGE = {
   baseUrl: 'permes_base_url',
   apiKey: 'permes_api_key'

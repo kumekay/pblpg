@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">Permes app icon</title>
+  <desc id="desc">A gold letter H on a green wristwatch with small wing details.</desc>
+
+  <!-- Rounded tile -->
+  <rect width="512" height="512" rx="112" fill="#123c36"/>
+
+  <!-- Watch strap -->
+  <path d="M190 0h132l18 116H172L190 0Z" fill="#d9a83e"/>
+  <path d="M172 396h168l-18 116H190l-18-116Z" fill="#d9a83e"/>
+  <path d="M211 0h90l10 116H201L211 0Z" fill="#f3c65b"/>
+  <path d="M201 396h110l-10 116h-90l-10-116Z" fill="#f3c65b"/>
+
+  <!-- Hermes-inspired wings -->
+  <g fill="none" stroke="#f3c65b" stroke-width="18" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M157 154 92 119 40 124l48 30-45 13 83 36"/>
+    <path d="m355 154 65-35 52 5-48 30 45 13-83 36"/>
+  </g>
+
+  <!-- Watch case and screen -->
+  <rect x="102" y="94" width="308" height="324" rx="76" fill="#f7e8bc" stroke="#0a2926" stroke-width="20"/>
+  <rect x="128" y="120" width="256" height="272" rx="52" fill="#287268"/>
+  <path d="M145 166c42-28 180-38 222 2" fill="none" stroke="#3f8d80" stroke-width="13" stroke-linecap="round" opacity=".8"/>
+
+  <!-- Geometric H, readable at small sizes -->
+  <g fill="#f3c65b">
+    <rect x="174" y="179" width="43" height="154" rx="12"/>
+    <rect x="295" y="179" width="43" height="154" rx="12"/>
+    <rect x="205" y="235" width="102" height="42" rx="10"/>
+  </g>
+
+  <!-- Watch crown -->
+  <path d="M410 220h24c13 0 24 11 24 24v24c0 13-11 24-24 24h-24v-72Z" fill="#d9a83e" stroke="#0a2926" stroke-width="14"/>
+</svg>

@@ -1,12 +1,19 @@
 {
   "name": "permes",
-  "author": "MakeAwesomeHappen",
+  "author": "Sergei Silnov <po@kumekay.com>",
   "version": "1.0.0",
-  "keywords": ["pebble-app"],
+  "keywords": [
+    "pebble-app",
+    "pebble-time-2",
+    "hermes",
+    "ai-assistant",
+    "voice",
+    "productivity"
+  ],
   "private": true,
   "dependencies": {},
   "pebble": {
-    "displayName": "permes",
+    "displayName": "(P)ermes",
     "uuid": "2d1ee2c8-d0a5-415f-a7e0-213a7250e42b",
     "sdkVersion": "3",
     "enableMultiJS": true,
@@ -30,7 +37,14 @@
       "ACTIVE": 7
     },
     "resources": {
-      "media": []
+      "media": [
+        {
+          "type": "bitmap",
+          "name": "MENU_ICON",
+          "file": "images/menu-icon.png",
+          "menuIcon": true
+        }
+      ]
     }
   }
 }

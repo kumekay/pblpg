@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-labelledby="title desc">
+  <title id="title">Permes launcher icon</title>
+  <desc id="desc">A simple black H on a white wristwatch.</desc>
+
+  <!-- Transparent background for the watch launcher. -->
+  <path d="M38 0h24l4 18H34L38 0ZM34 82h32l-4 18H38l-4-18Z" fill="#000"/>
+  <rect x="10" y="14" width="80" height="72" rx="20" fill="#fff" stroke="#000" stroke-width="8"/>
+  <path d="M90 39h7v22h-7" fill="#000"/>
+
+  <!-- Geometric H remains legible after scaling to 25 px. -->
+  <path d="M29 32h11v14h20V32h11v36H60V56H40v12H29V32Z" fill="#000"/>
+</svg>

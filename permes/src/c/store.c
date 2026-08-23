@@ -242,6 +242,19 @@ static void prv_inbox_received(DictionaryIterator *iter, void *ctx) {
       break;
     }
 
+    case OP_TITLE: {
+      Tuple *id_t = t(iter, MESSAGE_KEY_THREAD_ID);
+      Tuple *title_t = t(iter, MESSAGE_KEY_TITLE);
+      if (!id_t || !title_t) break;
+      int idx = store_find(id_t->value->cstring);
+      if (idx < 0) break;
+      strncpy(s_threads[idx].title, title_t->value->cstring, THREAD_TITLE_LEN - 1);
+      s_threads[idx].title[THREAD_TITLE_LEN - 1] = '\0';
+      if (s_list_cb) s_list_cb();
+      if (idx == s_open_index && s_detail_cb) s_detail_cb();
+      break;
+    }
+
     case OP_SEND_OK:
     case OP_STATUS: {
       Tuple *id_t = t(iter, MESSAGE_KEY_THREAD_ID);

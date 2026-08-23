@@ -29,7 +29,8 @@ Watch (C)  ⇄  Phone (Pebble app, src/pkjs)  ⇄  HTTPS  ⇄  hermes api_server
 | Purpose | Endpoint |
 |---|---|
 | Thread list | `GET /api/sessions?limit=40` |
-| New thread (with watch-sized system prompt) | `POST /api/sessions` |
+| New thread (untitled, with watch-sized system prompt) | `POST /api/sessions` |
+| Generated topic after the first turn | `GET /api/sessions/{id}` |
 | Latest reply when opening a thread | `GET /api/sessions/{id}/messages` |
 | Send message (async turn) | `POST /v1/runs {input, session_id}` |
 | Poll turn | `GET /v1/runs/{run_id}` → `status`, `output`, `error` |
@@ -40,7 +41,9 @@ thread's history automatically (validated).
 ### AppMessage protocol
 
 See `src/c/protocol.h` (OP codes) and `messageKeys` in `package.json`
-(`OP, THREAD_ID, TEXT, TITLE, INDEX, COUNT, STATUS, ACTIVE`). Replies travel
+(`OP, THREAD_ID, TEXT, TITLE, INDEX, COUNT, STATUS, ACTIVE`). New sessions show
+an interim `Watch [date time]` label locally; after the first completed turn,
+Hermes' generated topic replaces it on the watch. Replies travel
 as ≤8 UTF-8-safe chunks of ≤440 bytes; the watch assembles them.
 
 ## Build & run

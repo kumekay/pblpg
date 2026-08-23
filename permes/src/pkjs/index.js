@@ -5,6 +5,7 @@
  * hermes API: OpenAI-compatible gateway API server (platforms.api_server),
  *   GET  /api/sessions                     — list threads
  *   POST /api/sessions                     — create thread
+ *   GET  /api/sessions/{id}                — fetch generated title
  *   GET  /api/sessions/{id}/messages       — history (latest first)
  *   POST /v1/runs {input, session_id}      — start agent turn (202 + run_id)
  *   GET  /v1/runs/{run_id}                 — poll: status/output/error
@@ -65,7 +66,7 @@ var WATCH_SYSTEM_PROMPT =
 var OP = {
   LIST: 1, NEW: 2, SEND: 3, OPEN: 4,
   LIST_BEGIN: 10, THREAD: 11, LIST_END: 12, NEW_OK: 13, SEND_OK: 14,
-  REPLY: 15, STATUS: 16, ERROR: 17
+  REPLY: 15, STATUS: 16, ERROR: 17, TITLE: 18
 };
 var STATUS = { RUNNING: 1, DONE: 2, FAILED: 3 };
 
@@ -290,21 +291,40 @@ function pushThreadList() {
 // New thread
 // ---------------------------------------------------------------------------
 
-function createThread() {
+function watchPlaceholderTitle() {
   var now = new Date();
   function pad(n) { return n < 10 ? '0' + n : '' + n; }
-  var title = 'Watch ' + pad(now.getDate()) + '.' + pad(now.getMonth() + 1) +
-              ' ' + pad(now.getHours()) + ':' + pad(now.getMinutes());
+  return 'Watch ' + pad(now.getDate()) + '.' + pad(now.getMonth() + 1) +
+         ' ' + pad(now.getHours()) + ':' + pad(now.getMinutes());
+}
+
+function createThread() {
+  // Leave the server-side title empty. Hermes then derives a topic from the
+  // opening message and upgrades it with its title-generation model.
   request('POST', '/api/sessions',
-    { title: title, source: 'api_server', system_prompt: WATCH_SYSTEM_PROMPT },
+    { source: 'api_server', system_prompt: WATCH_SYSTEM_PROMPT },
     function (err, data) {
       if (err || !data || !data.session || !data.session.id) {
         sendError(err || 'could not create thread');
         return;
       }
-      var id = data.session.id;
-      var t = data.session.title || title;
-      queueSend({ OP: OP.NEW_OK, THREAD_ID: id, TITLE: t });
+      queueSend({
+        OP: OP.NEW_OK,
+        THREAD_ID: data.session.id,
+        TITLE: data.session.title || watchPlaceholderTitle()
+      });
+    });
+}
+
+function refreshThreadTitle(threadId) {
+  request('GET', '/api/sessions/' + encodeURIComponent(threadId), null,
+    function (err, data) {
+      var session = data && data.session;
+      if (err || !session || !session.title) {
+        log('title refresh failed: ' + (err || 'title not ready'));
+        return;
+      }
+      queueSend({ OP: OP.TITLE, THREAD_ID: threadId, TITLE: String(session.title).slice(0, 60) });
     });
 }
 
@@ -364,6 +384,7 @@ function pollRun(runId, threadId, startedAt) {
     if (status === 'completed') {
       delete runs[runId];
       persistRuns();
+      refreshThreadTitle(threadId);
       sendTranscript(threadId, function () { sendStatus(threadId, STATUS.DONE); });
     } else if (status === 'failed' || status === 'cancelled') {
       delete runs[runId];

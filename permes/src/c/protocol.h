@@ -18,6 +18,7 @@
 #define OP_REPLY       15  // reply chunk: THREAD_ID, INDEX, COUNT, TEXT
 #define OP_STATUS      16  // run status change: THREAD_ID, STATUS
 #define OP_ERROR       17  // TEXT = human-readable error
+#define OP_TITLE       18  // generated title: THREAD_ID, TITLE
 
 // Run status values (OP_STATUS / ACTIVE flag)
 #define STATUS_RUNNING 1   // agent is working ("thinking")

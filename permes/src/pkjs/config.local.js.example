@@ -1,0 +1,9 @@
+// Copy to config.local.js and fill in your values (config.local.js is gitignored).
+//
+// baseUrl: public HTTPS front for the hermes gateway api_server
+//          (platforms.api_server in ~/.hermes/config.yaml, default port 8642)
+// apiKey:  the API_SERVER_KEY / platforms.api_server.extra.key value
+module.exports = {
+  baseUrl: 'https://hermes.example.com',
+  apiKey: 'REPLACE_WITH_API_SERVER_KEY'
+};

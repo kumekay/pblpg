@@ -1,0 +1,8 @@
+build/
+*.pbw
+.DS_Store
+node_modules/
+
+# local secrets for the phone bridge (see permes/src/pkjs/config.local.js.example)
+permes/src/pkjs/config.local.js
+.lock-waf*

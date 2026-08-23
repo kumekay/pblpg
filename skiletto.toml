@@ -1,0 +1,2 @@
+[skills]
+pebble-watchface = { source = "https://github.com/coredevices/pebble-watchface-agent-skill.git", path = ".claude/skills/pebble-watchface" }

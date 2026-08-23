@@ -1,0 +1,33 @@
+{
+  "name": "permes",
+  "author": "MakeAwesomeHappen",
+  "version": "1.0.0",
+  "keywords": ["pebble-app"],
+  "private": true,
+  "dependencies": {},
+  "pebble": {
+    "displayName": "permes",
+    "uuid": "2d1ee2c8-d0a5-415f-a7e0-213a7250e42b",
+    "sdkVersion": "3",
+    "enableMultiJS": true,
+    "targetPlatforms": [
+      "emery"
+    ],
+    "watchapp": {
+      "watchface": false
+    },
+    "messageKeys": {
+      "OP": 0,
+      "THREAD_ID": 1,
+      "TEXT": 2,
+      "TITLE": 3,
+      "INDEX": 4,
+      "COUNT": 5,
+      "STATUS": 6,
+      "ACTIVE": 7
+    },
+    "resources": {
+      "media": []
+    }
+  }
+}

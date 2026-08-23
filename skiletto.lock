@@ -1,0 +1,8 @@
+version = 1
+
+[[skill]]
+name = 'pebble-watchface'
+source = 'https://github.com/coredevices/pebble-watchface-agent-skill.git'
+path = '.claude/skills/pebble-watchface'
+commit = '363bac9c8e672d62400fbf1b6e3bd4c8e0faca45'
+hash = 'sha256:4b12caaa43479d225b93281999a497ade56526ac73a1d5468f68ab313621ac7d'

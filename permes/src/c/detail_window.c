@@ -24,6 +24,8 @@ static int s_num_layers = 0;
 static DictationSession *s_dictation;
 static int s_scroll_offset = 0;   // >= 0: pixels scrolled down
 static bool s_dictating = false;
+static bool s_dictate_on_appear = false;
+static bool s_leave_on_dictation_failure = false;
 
 static void prv_msg_update_proc(Layer *layer, GContext *ctx) {
   MsgLayerData *d = (MsgLayerData *)layer_get_data(layer);
@@ -164,8 +166,15 @@ static void prv_send_dictated(char *transcription) {
 static void prv_dictation_cb(DictationSession *session, DictationSessionStatus status,
                              char *transcription, void *ctx) {
   s_dictating = false;
+  // The native dictation UI reports BACK through several failure statuses
+  // depending on whether listening/transcription had already started.
+  bool leave = s_leave_on_dictation_failure &&
+               status != DictationSessionStatusSuccess;
+  s_leave_on_dictation_failure = false;
   if (status == DictationSessionStatusSuccess && transcription && transcription[0]) {
     prv_send_dictated(transcription);
+  } else if (leave && window_stack_get_top_window() == s_window) {
+    window_stack_pop(true);
   }
 }
 
@@ -173,12 +182,17 @@ static void prv_dictation_cb(DictationSession *session, DictationSessionStatus s
 // Clicks
 // ---------------------------------------------------------------------------
 
-static void prv_select_click(ClickRecognizerRef recognizer, void *ctx) {
+static void prv_start_dictation(bool leave_on_failure) {
   if (s_dictating) return;
   Thread *th = store_open_thread();
   if (!th || (!th->id[0] && th->active)) return;
   s_dictating = true;
+  s_leave_on_dictation_failure = leave_on_failure;
   dictation_session_start(s_dictation);
+}
+
+static void prv_select_click(ClickRecognizerRef recognizer, void *ctx) {
+  prv_start_dictation(false);
 }
 
 static void prv_up_click(ClickRecognizerRef recognizer, void *ctx) {
@@ -220,6 +234,12 @@ static void prv_window_load(Window *window) {
   prv_render();
 }
 
+static void prv_window_appear(Window *window) {
+  if (!s_dictate_on_appear) return;
+  s_dictate_on_appear = false;
+  prv_start_dictation(true);
+}
+
 static void prv_window_unload(Window *window) {
   prv_clear_layers();
   scroll_layer_destroy(s_scroll);
@@ -228,16 +248,18 @@ static void prv_window_unload(Window *window) {
   s_title_layer = NULL;
 }
 
-void detail_window_push(void) {
+void detail_window_push(bool dictate_immediately) {
   if (!s_window) {
     s_window = window_create();
     window_set_window_handlers(s_window, (WindowHandlers) {
       .load = prv_window_load,
+      .appear = prv_window_appear,
       .unload = prv_window_unload,
     });
     s_dictation = dictation_session_create(DICTATION_BUF_SIZE, prv_dictation_cb, NULL);
   }
   s_scroll_offset = 0;
+  s_dictate_on_appear = dictate_immediately;
   prv_render();
   window_stack_push(s_window, true);
 }

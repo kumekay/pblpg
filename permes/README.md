@@ -21,8 +21,9 @@ Watch (C)  ⇄  Phone (Pebble app, src/pkjs)  ⇄  HTTPS  ⇄  hermes api_server
                                                         → mac LAN IP:8642
 ```
 
-- **Watch side** (`src/c/`): thread list (MenuLayer) + thread view
-  (ScrollLayer reply, SELECT = dictation via `DictationSession`).
+- **Watch side** (`src/c/`): launches straight into dictation for a new
+  local draft; BACK reveals the thread list (MenuLayer). Thread views use a
+  ScrollLayer for replies, with SELECT starting dictation again.
 - **Phone side** (`src/pkjs/index.js`): talks to hermes, polls async runs,
   cleans markdown, chunks replies for the watch.
 - **hermes side**: gateway `api_server` platform (OpenAI-compatible REST),
@@ -47,9 +48,10 @@ thread's history automatically (validated).
 ### AppMessage protocol
 
 See `src/c/protocol.h` (OP codes) and `messageKeys` in `package.json`
-(`OP, THREAD_ID, TEXT, TITLE, INDEX, COUNT, STATUS, ACTIVE`). Tapping **New
-thread** opens a local draft; no remote Hermes session is created until the
-first dictated message is submitted. It then shows an interim `Watch [date
+(`OP, THREAD_ID, TEXT, TITLE, INDEX, COUNT, STATUS, ACTIVE`). App launch and
+**New thread** both open a local draft and start recording immediately; no
+remote Hermes session is created until the first dictated message is
+submitted. It then shows an interim `Watch [date
 time]` label; after the first completed turn, Hermes' generated topic replaces
 it on the watch. Replies travel
 as ≤8 UTF-8-safe chunks of ≤440 bytes; the watch assembles them.
@@ -101,6 +103,8 @@ spawns the pebble tool.
 
 ## UX notes
 
+- Launch and **New thread** start recording immediately; rejecting that
+  dictation with BACK returns to the thread list.
 - SELECT on a thread = speak; UP/DOWN scroll the reply; BACK to the list.
 - Threads created from the watch get `system_prompt` asking for short,
   plain-text replies (watch-sized). Existing threads (e.g. telegram) get

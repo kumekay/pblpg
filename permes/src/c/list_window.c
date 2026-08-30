@@ -39,14 +39,14 @@ static void prv_select(MenuLayer *menu, MenuIndex *idx, void *ctx) {
   if (store_error()[0]) return;
   if (idx->row == 0) {
     store_begin_new();
-    detail_window_push();  // remote session is created after the first message
+    detail_window_push(true);  // record now; create the remote session on send
     return;
   }
   int ti = idx->row - 1;
   Thread *th = store_get(ti);
   if (!th) return;
   store_set_open(ti);
-  detail_window_push();
+  detail_window_push(false);
   store_request_open(th->id);
 }
 

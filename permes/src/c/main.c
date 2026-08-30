@@ -11,7 +11,12 @@ static void prv_init(void) {
   store_set_completion_cb(detail_window_notify_reply_complete);
 
   s_list_window = list_window_create();
-  window_stack_push(s_list_window, true);
+  window_stack_push(s_list_window, false);
+
+  // The default landing screen is a fresh local draft. Keeping the thread
+  // list underneath means BACK from dictation returns directly to the list.
+  store_begin_new();
+  detail_window_push(true);
 
   store_init();  // opens AppMessage + requests the thread list
 }

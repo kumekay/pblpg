@@ -3,14 +3,71 @@
 
 #define DICTATION_BUF_SIZE 512
 #define SCROLL_STEP 44
+#define EXTRA_LAYERS 2                       // thinking indicator + footer
+#define MAX_MSG_LAYERS (MSG_MAX + EXTRA_LAYERS)
+
+// One transcript message rendered as a custom layer: background bubble
+// (optional) + text drawn with insets.
+typedef struct {
+  const char *text;
+  GFont font;
+  GColor bg;
+  GColor fg;
+  GEdgeInsets insets;
+} MsgLayerData;
 
 static Window *s_window;
 static TextLayer *s_title_layer;
 static ScrollLayer *s_scroll;
-static TextLayer *s_body_layer;
+static Layer *s_msg_layers[MAX_MSG_LAYERS];
+static int s_num_layers = 0;
 static DictationSession *s_dictation;
 static int s_scroll_offset = 0;   // >= 0: pixels scrolled down
 static bool s_dictating = false;
+
+static void prv_msg_update_proc(Layer *layer, GContext *ctx) {
+  MsgLayerData *d = (MsgLayerData *)layer_get_data(layer);
+  GRect bounds = layer_get_bounds(layer);
+  if (!gcolor_equal(d->bg, GColorClear)) {
+    graphics_context_set_fill_color(ctx, d->bg);
+    graphics_fill_rect(ctx, bounds, 6, GCornersAll);
+  }
+  graphics_context_set_text_color(ctx, d->fg);
+  GRect box = grect_inset(bounds, d->insets);
+  graphics_draw_text(ctx, d->text, d->font, box,
+                     GTextOverflowModeWordWrap, GTextAlignmentLeft, NULL);
+}
+
+static void prv_clear_layers(void) {
+  for (int i = 0; i < s_num_layers; i++) {
+    layer_remove_from_parent(s_msg_layers[i]);
+    layer_destroy(s_msg_layers[i]);
+    s_msg_layers[i] = NULL;
+  }
+  s_num_layers = 0;
+}
+
+// Returns the layer height.
+static int prv_add_msg(const char *text, GFont font, GColor bg, GColor fg,
+                       GEdgeInsets insets, int y, int w) {
+  if (s_num_layers >= MAX_MSG_LAYERS) return 0;
+  int tw = w - insets.left - insets.right;
+  GSize ts = graphics_text_layout_get_content_size(
+      text, font, GRect(0, 0, tw, 10000),
+      GTextOverflowModeWordWrap, GTextAlignmentLeft);
+  int h = ts.h + insets.top + insets.bottom;
+  Layer *l = layer_create_with_data(GRect(0, y, w, h), sizeof(MsgLayerData));
+  MsgLayerData *d = (MsgLayerData *)layer_get_data(l);
+  d->text = text;
+  d->font = font;
+  d->bg = bg;
+  d->fg = fg;
+  d->insets = insets;
+  layer_set_update_proc(l, prv_msg_update_proc);
+  scroll_layer_add_child(s_scroll, l);
+  s_msg_layers[s_num_layers++] = l;
+  return h;
+}
 
 static void prv_render(void) {
   Thread *th = store_open_thread();
@@ -18,27 +75,54 @@ static void prv_render(void) {
 
   text_layer_set_text(s_title_layer, th->title[0] ? th->title : th->id);
 
-  static char body[REPLY_MAX + 64];
-  const char *reply = store_reply();
-  if (store_reply_pending() || th->active) {
-    snprintf(body, sizeof(body), "thinking...\n\n%s", reply);
-  } else if (reply[0]) {
-    snprintf(body, sizeof(body), "%s\n\nSELECT: speak", reply);
-  } else {
-    snprintf(body, sizeof(body), "No reply yet.\n\nPress SELECT and speak to the agent.");
-  }
-  text_layer_set_text(s_body_layer, body);
+  prv_clear_layers();
 
-  // Resize body + scroll content to fit the text
   GRect frame = layer_get_frame(scroll_layer_get_layer(s_scroll));
-  GSize text_size = graphics_text_layout_get_content_size(
-      body, fonts_get_system_font(FONT_KEY_GOTHIC_24),
-      GRect(0, 0, frame.size.w - 4, 10000),
-      GTextOverflowModeWordWrap, GTextAlignmentLeft);
-  int16_t content_h = text_size.h + 8;
+  int content_w = frame.size.w;
+  int y = 0;
+
+  int n = store_msg_count();
+  bool busy = store_reply_pending() || th->active;
+
+  if (n == 0 && !busy) {
+    prv_add_msg("Press SELECT and speak to the agent.",
+                fonts_get_system_font(FONT_KEY_GOTHIC_24),
+                GColorClear, GColorBlack,
+                (GEdgeInsets){0, 4, 0, 4}, y, content_w);
+  }
+
+  for (int i = 0; i < n; i++) {
+    int role;
+    const char *text = store_msg(i, &role);
+    if (role == MSG_ROLE_USER) {
+      // User prompts get a shaded bubble so they stand out from replies
+      y += prv_add_msg(text, fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD),
+                       GColorLightGray, GColorBlack,
+                       (GEdgeInsets){8, 12, 8, 12}, y, content_w);
+    } else {
+      GColor bg = (role == MSG_ROLE_SYSTEM) ? GColorMelon : GColorClear;
+      y += prv_add_msg(text, fonts_get_system_font(FONT_KEY_GOTHIC_24),
+                       bg, GColorBlack,
+                       (GEdgeInsets){2, 4, 8, 4}, y, content_w);
+    }
+    y += 4;  // gap between messages
+  }
+
+  if (busy) {
+    y += prv_add_msg("thinking\u2026",
+                     fonts_get_system_font(FONT_KEY_GOTHIC_24),
+                     GColorClear, GColorDarkGray,
+                     (GEdgeInsets){2, 4, 8, 4}, y, content_w);
+  } else if (n > 0) {
+    y += prv_add_msg("SELECT: speak",
+                     fonts_get_system_font(FONT_KEY_GOTHIC_18),
+                     GColorClear, GColorDarkGray,
+                     (GEdgeInsets){2, 4, 4, 4}, y, content_w);
+  }
+
+  int16_t content_h = y + 4;
   if (content_h < frame.size.h) content_h = frame.size.h;
-  text_layer_set_size(s_body_layer, GSize(frame.size.w - 4, content_h));
-  scroll_layer_set_content_size(s_scroll, GSize(frame.size.w, content_h));
+  scroll_layer_set_content_size(s_scroll, GSize(content_w, content_h));
 
   // Scroll position: honour hints, keep in bounds
   int hint = store_scroll_hint();
@@ -131,23 +215,16 @@ static void prv_window_load(Window *window) {
     .click_config_provider = prv_click_config,
   });
   scroll_layer_set_click_config_onto_window(s_scroll, window);
-
-  s_body_layer = text_layer_create(GRect(4, 0, scroll_frame.size.w - 8, 200));
-  text_layer_set_font(s_body_layer, fonts_get_system_font(FONT_KEY_GOTHIC_24));
-  text_layer_set_overflow_mode(s_body_layer, GTextOverflowModeWordWrap);
-  text_layer_set_background_color(s_body_layer, GColorClear);
-  scroll_layer_add_child(s_scroll, text_layer_get_layer(s_body_layer));
   layer_add_child(root, scroll_layer_get_layer(s_scroll));
 
   prv_render();
 }
 
 static void prv_window_unload(Window *window) {
+  prv_clear_layers();
   scroll_layer_destroy(s_scroll);
-  text_layer_destroy(s_body_layer);
   text_layer_destroy(s_title_layer);
   s_scroll = NULL;
-  s_body_layer = NULL;
   s_title_layer = NULL;
 }
 

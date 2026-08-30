@@ -6,11 +6,24 @@ static int s_num_threads = 0;
 static int s_open_index = -1;
 static char s_error[201];
 
+// Transcript storage: all messages live in one flat pool; the Msg index
+// records each message's offset, length and role.
+static char s_pool[REPLY_MAX + 1];
+static size_t s_pool_len = 0;
+
+typedef struct {
+  uint16_t off;
+  uint16_t len;
+  uint8_t role;
+} Msg;
+
+static Msg s_msgs[MSG_MAX];
+static int s_num_msgs = 0;
+
 // Reply assembly (chunked)
 static char s_chunks[REPLY_CHUNK_MAX][512];
 static bool s_chunk_recv[REPLY_CHUNK_MAX];
 static int s_chunk_total = 0;
-static char s_reply[REPLY_MAX + 1];
 static bool s_reply_pending = false;
 static int s_scroll_hint = SCROLL_HINT_NONE;
 
@@ -125,13 +138,22 @@ Thread *store_open_thread(void) {
 
 void store_set_open(int index) {
   s_open_index = index;
-  s_reply[0] = '\0';
+  s_pool[0] = '\0';
+  s_pool_len = 0;
+  s_num_msgs = 0;
   s_reply_pending = false;
   s_chunk_total = 0;
   memset(s_chunk_recv, 0, sizeof(s_chunk_recv));
 }
 
-const char *store_reply(void) { return s_reply; }
+int store_msg_count(void) { return s_num_msgs; }
+
+const char *store_msg(int index, int *role_out) {
+  if (index < 0 || index >= s_num_msgs) return "";
+  if (role_out) *role_out = s_msgs[index].role;
+  return s_pool + s_msgs[index].off;
+}
+
 bool store_reply_pending(void) { return s_reply_pending; }
 
 int store_scroll_hint(void) {
@@ -140,17 +162,42 @@ int store_scroll_hint(void) {
   return h;
 }
 
+// ---------------------------------------------------------------------------
+// Transcript helpers
+// ---------------------------------------------------------------------------
+
+static bool prv_pool_append(const char *text, size_t len) {
+  if (s_pool_len + len + 1 > sizeof(s_pool)) return false;
+  memcpy(s_pool + s_pool_len, text, len);
+  s_pool_len += len;
+  s_pool[s_pool_len] = '\0';
+  return true;
+}
+
+static void prv_add_msg(uint8_t role, uint16_t off, uint16_t len) {
+  if (s_num_msgs >= MSG_MAX) return;
+  s_msgs[s_num_msgs].off = off;
+  s_msgs[s_num_msgs].len = len;
+  s_msgs[s_num_msgs].role = role;
+  s_num_msgs++;
+}
+
 void store_append_you(const char *text) {
-  size_t cur = strlen(s_reply);
-  size_t room = sizeof(s_reply) - cur;
-  if (room < 8) return;
-  int w = snprintf(s_reply + cur, room, "%sYou: %s\n\n", cur > 0 ? "\n" : "", text);
-  if (w < 0) s_reply[cur] = '\0';
+  if (!text || !text[0] || s_num_msgs >= MSG_MAX) return;
+  size_t len = strlen(text);
+  uint16_t off = (uint16_t)s_pool_len;
+  if (!prv_pool_append(text, len)) return;
+  prv_add_msg(MSG_ROLE_USER, off, (uint16_t)len);
 }
 
 void store_mark_failed(const char *error) {
   s_reply_pending = false;
-  snprintf(s_reply, sizeof(s_reply), "! %s", error ? error : "Something went wrong");
+  char buf[220];
+  snprintf(buf, sizeof(buf), "! %s", (error && error[0]) ? error : "Something went wrong");
+  size_t len = strlen(buf);
+  uint16_t off = (uint16_t)s_pool_len;
+  if (!prv_pool_append(buf, len)) return;
+  prv_add_msg(MSG_ROLE_SYSTEM, off, (uint16_t)len);
 }
 
 // ---------------------------------------------------------------------------
@@ -158,20 +205,42 @@ void store_mark_failed(const char *error) {
 // ---------------------------------------------------------------------------
 
 static void prv_finish_reply(void) {
-  s_reply[0] = '\0';
+  // The phone side sends the whole session history as one plain-text
+  // transcript ("You: ..." / "Agent: ..." blocks separated by blank
+  // lines). Replace the pool and split it into role-tagged messages.
+  s_pool[0] = '\0';
+  s_pool_len = 0;
+  s_num_msgs = 0;
   size_t off = 0;
   for (int i = 0; i < s_chunk_total; i++) {
-    size_t len = strlen(s_chunks[i]);
-    if (off + len >= REPLY_MAX) {
-      size_t room = REPLY_MAX - off;
-      memcpy(s_reply + off, s_chunks[i], room);
-      off += room;
-      break;
-    }
-    memcpy(s_reply + off, s_chunks[i], len);
-    off += len;
+    size_t cl = strlen(s_chunks[i]);
+    if (off + cl + 1 > sizeof(s_pool)) cl = sizeof(s_pool) - off - 1;
+    if (cl == 0) continue;
+    memcpy(s_pool + off, s_chunks[i], cl);
+    off += cl;
   }
-  s_reply[off] = '\0';
+  s_pool[off] = '\0';
+  s_pool_len = off;
+
+  char *p = s_pool;
+  while (*p) {
+    char *nl = strstr(p, "\n\n");
+    size_t len = nl ? (size_t)(nl - p) : strlen(p);
+    if (nl) *nl = '\0';
+    uint8_t role = MSG_ROLE_AGENT;
+    char *body = p;
+    if (len > 5 && strncmp(p, "You: ", 5) == 0) {
+      role = MSG_ROLE_USER;
+      body = p + 5;
+      len -= 5;
+    } else if (len > 7 && strncmp(p, "Agent: ", 7) == 0) {
+      body = p + 7;
+      len -= 7;
+    }
+    if (len > 0) prv_add_msg(role, (uint16_t)(body - s_pool), (uint16_t)len);
+    if (!nl) break;
+    p = nl + 2;
+  }
   s_reply_pending = false;
 }
 

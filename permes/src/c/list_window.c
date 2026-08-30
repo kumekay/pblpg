@@ -6,6 +6,7 @@ static Window *s_window;
 static MenuLayer *s_menu;
 static TextLayer *s_error_title;
 static TextLayer *s_error_body;
+static bool s_has_appeared;
 
 static void prv_update_error(void) {
   const char *error = store_error();
@@ -81,6 +82,14 @@ static void prv_window_load(Window *window) {
   prv_update_error();
 }
 
+static void prv_window_appear(Window *window) {
+  // Reconcile with the server whenever the user returns from a thread. This
+  // picks up newly-created sessions and any title/order changes made while the
+  // detail window was open. The initial list is requested by store_init().
+  if (s_has_appeared) store_request_list();
+  s_has_appeared = true;
+}
+
 static void prv_window_unload(Window *window) {
   text_layer_destroy(s_error_body);
   text_layer_destroy(s_error_title);
@@ -94,6 +103,7 @@ Window *list_window_create(void) {
   s_window = window_create();
   window_set_window_handlers(s_window, (WindowHandlers) {
     .load = prv_window_load,
+    .appear = prv_window_appear,
     .unload = prv_window_unload,
   });
   return s_window;

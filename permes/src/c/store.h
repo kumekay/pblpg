@@ -7,6 +7,12 @@
 #define THREAD_TITLE_LEN 128
 #define REPLY_MAX        14000
 #define REPLY_CHUNK_MAX  32
+#define MSG_MAX          32
+
+// Message roles (for transcript rendering)
+#define MSG_ROLE_USER   0
+#define MSG_ROLE_AGENT  1
+#define MSG_ROLE_SYSTEM 2
 
 typedef struct {
   char id[THREAD_ID_LEN];
@@ -27,8 +33,9 @@ int store_find(const char *id);  // returns index or -1
 Thread *store_open_thread(void); // currently open thread or NULL
 void store_set_open(int index);  // -1 = none
 
-// Reply state for the open thread
-const char *store_reply(void);     // assembled reply (may be empty)
+// Transcript for the open thread (user + agent messages, in order)
+int store_msg_count(void);
+const char *store_msg(int index, int *role_out);  // role: MSG_ROLE_*
 bool store_reply_pending(void);    // chunks arriving right now
 void store_mark_failed(const char *error);
 void store_append_you(const char *text);  // locally echo the dictated message

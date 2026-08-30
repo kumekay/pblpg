@@ -371,7 +371,7 @@ static void prv_inbox_received(DictionaryIterator *iter, void *ctx) {
         running = (st == STATUS_RUNNING);
         completed_open_reply = st == STATUS_DONE && was_running && idx == s_open_index;
         if (completed_open_reply) {
-          s_scroll_hint = SCROLL_HINT_BOTTOM;  // show the fresh answer
+          s_scroll_hint = SCROLL_HINT_REPLY;  // start reading the fresh answer
         }
       }
       s_threads[idx].active = running;
@@ -408,7 +408,9 @@ static void prv_inbox_received(DictionaryIterator *iter, void *ctx) {
       }
       if (complete) {
         prv_finish_reply();
-        s_scroll_hint = SCROLL_HINT_TOP;  // reading a transcript: start at top
+        // Opening an idle thread starts at the transcript top. For a live
+        // turn, OP_STATUS(DONE) follows and targets the newest reply instead.
+        s_scroll_hint = s_threads[idx].active ? SCROLL_HINT_NONE : SCROLL_HINT_TOP;
         if (s_detail_cb) s_detail_cb();
       }
       break;

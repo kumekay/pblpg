@@ -85,6 +85,14 @@ static void prv_render(void) {
 
   int n = store_msg_count();
   bool busy = store_reply_pending() || th->active;
+  int last_user_index = -1;
+  for (int i = 0; i < n; i++) {
+    int role;
+    store_msg(i, &role);
+    if (role == MSG_ROLE_USER) last_user_index = i;
+  }
+  int response_start_y = 0;
+  bool has_response_start = false;
 
   if (n == 0 && !busy) {
     prv_add_msg("Press SELECT and speak to the agent.",
@@ -102,6 +110,12 @@ static void prv_render(void) {
                        GColorLightGray, GColorBlack,
                        (GEdgeInsets){8, 12, 8, 12}, y, content_w);
     } else {
+      if (role == MSG_ROLE_AGENT && !has_response_start && i > last_user_index) {
+        // One agent turn may contain several consecutive messages. Align the
+        // first one after the latest user message so the whole turn is visible.
+        response_start_y = y;
+        has_response_start = true;
+      }
       GColor bg = (role == MSG_ROLE_SYSTEM) ? GColorMelon : GColorClear;
       y += prv_add_msg(text, fonts_get_system_font(FONT_KEY_GOTHIC_24),
                        bg, GColorBlack,
@@ -131,6 +145,9 @@ static void prv_render(void) {
   int max_offset = content_h - frame.size.h;
   if (hint == SCROLL_HINT_TOP) s_scroll_offset = 0;
   else if (hint == SCROLL_HINT_BOTTOM) s_scroll_offset = max_offset;
+  else if (hint == SCROLL_HINT_REPLY && has_response_start) {
+    s_scroll_offset = response_start_y;
+  }
   if (s_scroll_offset > max_offset) s_scroll_offset = max_offset;
   if (s_scroll_offset < 0) s_scroll_offset = 0;
   scroll_layer_set_content_offset(s_scroll, GPoint(0, -s_scroll_offset), false);

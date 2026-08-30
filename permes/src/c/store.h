@@ -45,6 +45,7 @@ void store_append_you(const char *text);  // locally echo the dictated message
 #define SCROLL_HINT_NONE 0
 #define SCROLL_HINT_TOP 1
 #define SCROLL_HINT_BOTTOM 2
+#define SCROLL_HINT_REPLY 3  // align the first agent message after the last user message
 int store_scroll_hint(void);
 
 // Requests to the phone side

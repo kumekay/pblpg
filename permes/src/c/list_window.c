@@ -38,8 +38,8 @@ static void prv_draw_row(GContext *ctx, const Layer *cell, MenuIndex *idx, void 
 static void prv_select(MenuLayer *menu, MenuIndex *idx, void *ctx) {
   if (store_error()[0]) return;
   if (idx->row == 0) {
-    store_request_new();
-    detail_window_push();  // content fills in when OP_NEW_OK arrives
+    store_begin_new();
+    detail_window_push();  // remote session is created after the first message
     return;
   }
   int ti = idx->row - 1;

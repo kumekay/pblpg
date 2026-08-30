@@ -3,7 +3,10 @@
 
 static Thread s_threads[MAX_THREADS];
 static int s_num_threads = 0;
+#define OPEN_DRAFT -2
+
 static int s_open_index = -1;
+static Thread s_draft;
 static char s_error[201];
 
 // Transcript storage: all messages live in one flat pool; the Msg index
@@ -90,11 +93,6 @@ void store_request_list(void) {
   prv_out_send_tuplets(&t, 1);
 }
 
-void store_request_new(void) {
-  Tuplet t = TupletInteger(MESSAGE_KEY_OP, (uint8_t)OP_NEW);
-  prv_out_send_tuplets(&t, 1);
-}
-
 void store_request_open(const char *id) {
   Tuplet ts[2] = {
     TupletInteger(MESSAGE_KEY_OP, (uint8_t)OP_OPEN),
@@ -104,6 +102,18 @@ void store_request_open(const char *id) {
 }
 
 void store_send_message(const char *id, const char *text) {
+  if (!id || !id[0]) {
+    // A new-thread screen is only a local draft until its first message. The
+    // phone creates the remote session and starts the first run atomically
+    // from the watch's point of view.
+    Tuplet ts[2] = {
+      TupletInteger(MESSAGE_KEY_OP, (uint8_t)OP_NEW),
+      TupletCString(MESSAGE_KEY_TEXT, text),
+    };
+    s_draft.active = true;
+    prv_out_send_tuplets(ts, 2);
+    return;
+  }
   Tuplet ts[3] = {
     TupletInteger(MESSAGE_KEY_OP, (uint8_t)OP_SEND),
     TupletCString(MESSAGE_KEY_THREAD_ID, id),
@@ -132,18 +142,31 @@ int store_find(const char *id) {
 }
 
 Thread *store_open_thread(void) {
+  if (s_open_index == OPEN_DRAFT) return &s_draft;
   if (s_open_index < 0 || s_open_index >= s_num_threads) return NULL;
   return &s_threads[s_open_index];
 }
 
-void store_set_open(int index) {
-  s_open_index = index;
+static void prv_clear_transcript(void) {
   s_pool[0] = '\0';
   s_pool_len = 0;
   s_num_msgs = 0;
   s_reply_pending = false;
   s_chunk_total = 0;
   memset(s_chunk_recv, 0, sizeof(s_chunk_recv));
+}
+
+void store_set_open(int index) {
+  s_open_index = index;
+  prv_clear_transcript();
+}
+
+void store_begin_new(void) {
+  memset(&s_draft, 0, sizeof(s_draft));
+  strncpy(s_draft.title, "New thread", THREAD_TITLE_LEN - 1);
+  s_draft.used = true;
+  s_open_index = OPEN_DRAFT;
+  prv_clear_transcript();
 }
 
 int store_msg_count(void) { return s_num_msgs; }
@@ -192,6 +215,8 @@ void store_append_you(const char *text) {
 
 void store_mark_failed(const char *error) {
   s_reply_pending = false;
+  Thread *open = store_open_thread();
+  if (open) open->active = false;
   char buf[220];
   snprintf(buf, sizeof(buf), "! %s", (error && error[0]) ? error : "Something went wrong");
   size_t len = strlen(buf);
@@ -306,7 +331,13 @@ static void prv_inbox_received(DictionaryIterator *iter, void *ctx) {
       th->used = true;
       strncpy(th->id, id_t->value->cstring, THREAD_ID_LEN - 1);
       if (title_t) strncpy(th->title, title_t->value->cstring, THREAD_TITLE_LEN - 1);
-      store_set_open(idx);
+      if (s_open_index == OPEN_DRAFT) {
+        // Keep the locally echoed first message while replacing the draft
+        // with the newly-created remote session. If the user has already
+        // opened another thread, add this one to the list without hijacking it.
+        th->active = s_draft.active;
+        s_open_index = idx;
+      }
       if (s_list_cb) s_list_cb();
       if (s_detail_cb) s_detail_cb();
       break;

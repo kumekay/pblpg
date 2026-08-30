@@ -5,7 +5,7 @@
 
 // Watch -> phone requests
 #define OP_LIST        1   // request the thread list
-#define OP_NEW         2   // create a new thread (optional TEXT = first message)
+#define OP_NEW         2   // create a thread and send its required first TEXT
 #define OP_SEND        3   // send TEXT to THREAD_ID (dictated message)
 #define OP_OPEN        4   // user opened THREAD_ID; fetch its latest reply
 

@@ -71,7 +71,7 @@ static int prv_add_msg(const char *text, GFont font, GColor bg, GColor fg,
 
 static void prv_render(void) {
   Thread *th = store_open_thread();
-  if (!th || !s_window || !window_is_loaded(s_window)) return;
+  if (!th || !s_window || !s_title_layer || !s_scroll) return;
 
   text_layer_set_text(s_title_layer, th->title[0] ? th->title : th->id);
 
@@ -176,7 +176,7 @@ static void prv_dictation_cb(DictationSession *session, DictationSessionStatus s
 static void prv_select_click(ClickRecognizerRef recognizer, void *ctx) {
   if (s_dictating) return;
   Thread *th = store_open_thread();
-  if (!th || !th->id[0]) return;  // thread not created yet
+  if (!th || (!th->id[0] && th->active)) return;
   s_dictating = true;
   dictation_session_start(s_dictation);
 }

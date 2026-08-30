@@ -298,7 +298,7 @@ function watchPlaceholderTitle() {
          ' ' + pad(now.getHours()) + ':' + pad(now.getMinutes());
 }
 
-function createThread() {
+function createThread(firstMessage) {
   // Leave the server-side title empty. Hermes then derives a topic from the
   // opening message and upgrades it with its title-generation model.
   request('POST', '/api/sessions',
@@ -308,11 +308,13 @@ function createThread() {
         sendError(err || 'could not create thread');
         return;
       }
+      var threadId = data.session.id;
       queueSend({
         OP: OP.NEW_OK,
-        THREAD_ID: data.session.id,
+        THREAD_ID: threadId,
         TITLE: data.session.title || watchPlaceholderTitle()
       });
+      if (firstMessage) sendMessage(threadId, firstMessage);
     });
 }
 
@@ -464,7 +466,7 @@ Pebble.addEventListener('appmessage', function (e) {
   var text = e.payload.TEXT;
   switch (op) {
     case OP.LIST: pushThreadList(); break;
-    case OP.NEW:  createThread(); break;
+    case OP.NEW:  if (text) createThread(text); break;
     case OP.SEND: if (threadId && text) sendMessage(threadId, text); break;
     case OP.OPEN: if (threadId) openThread(threadId); break;
     default: log('unknown op ' + op);

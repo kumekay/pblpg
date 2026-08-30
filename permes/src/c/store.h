@@ -32,6 +32,7 @@ Thread *store_get(int index);
 int store_find(const char *id);  // returns index or -1
 Thread *store_open_thread(void); // currently open thread or NULL
 void store_set_open(int index);  // -1 = none
+void store_begin_new(void);      // open a local draft; no remote session yet
 
 // Transcript for the open thread (user + agent messages, in order)
 int store_msg_count(void);
@@ -48,7 +49,6 @@ int store_scroll_hint(void);
 
 // Requests to the phone side
 void store_request_list(void);
-void store_request_new(void);
 void store_request_open(const char *id);
 void store_send_message(const char *id, const char *text);
 

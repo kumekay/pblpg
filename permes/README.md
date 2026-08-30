@@ -105,3 +105,5 @@ spawns the pebble tool.
   markdown-stripped, truncated replies.
 - Replies for the open thread render live; other threads keep running in
   parallel (pkjs polls each run; list shows "thinking..." via ACTIVE flag).
+- A completed reply gives one short vibration only while its thread detail
+  screen is visible; background threads and duplicate completion events are silent.

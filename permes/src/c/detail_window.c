@@ -168,3 +168,14 @@ void detail_window_push(void) {
 void detail_window_refresh(void) {
   prv_render();
 }
+
+void detail_window_notify_reply_complete(void) {
+  // s_window remains allocated after BACK, so explicitly check that the
+  // detail screen is the visible top window before notifying the user.
+  if (!s_window || window_stack_get_top_window() != s_window) {
+    APP_LOG(APP_LOG_LEVEL_INFO, "Reply completed while detail was hidden");
+    return;
+  }
+  APP_LOG(APP_LOG_LEVEL_INFO, "Reply completed in visible thread: vibrating");
+  vibes_short_pulse();
+}

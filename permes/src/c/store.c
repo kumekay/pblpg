@@ -16,6 +16,7 @@ static int s_scroll_hint = SCROLL_HINT_NONE;
 
 static StoreRefreshCb s_list_cb = NULL;
 static StoreRefreshCb s_detail_cb = NULL;
+static StoreCompletionCb s_completion_cb = NULL;
 
 // ---------------------------------------------------------------------------
 // Outbox (with retry on EBUSY)
@@ -261,12 +262,15 @@ static void prv_inbox_received(DictionaryIterator *iter, void *ctx) {
       if (!id_t) break;
       int idx = store_find(id_t->value->cstring);
       if (idx < 0) break;
+      bool was_running = s_threads[idx].active;
       bool running = (op == OP_SEND_OK);
+      bool completed_open_reply = false;
       if (op == OP_STATUS) {
         Tuple *st_t = t(iter, MESSAGE_KEY_STATUS);
         uint8_t st = st_t ? st_t->value->uint8 : STATUS_RUNNING;
         running = (st == STATUS_RUNNING);
-        if (!running && st == STATUS_DONE && idx == s_open_index) {
+        completed_open_reply = st == STATUS_DONE && was_running && idx == s_open_index;
+        if (completed_open_reply) {
           s_scroll_hint = SCROLL_HINT_BOTTOM;  // show the fresh answer
         }
       }
@@ -274,6 +278,9 @@ static void prv_inbox_received(DictionaryIterator *iter, void *ctx) {
       if (!running) s_reply_pending = false;
       if (s_list_cb) s_list_cb();
       if (s_detail_cb) s_detail_cb();
+      // Only a running -> done transition is a new completion. This makes
+      // retried/duplicate DONE messages harmless.
+      if (completed_open_reply && s_completion_cb) s_completion_cb();
       break;
     }
 
@@ -333,6 +340,7 @@ static void prv_inbox_dropped(AppMessageResult reason, void *ctx) {
 
 void store_set_list_cb(StoreRefreshCb cb) { s_list_cb = cb; }
 void store_set_detail_cb(StoreRefreshCb cb) { s_detail_cb = cb; }
+void store_set_completion_cb(StoreCompletionCb cb) { s_completion_cb = cb; }
 
 void store_init(void) {
   app_message_register_inbox_received(prv_inbox_received);

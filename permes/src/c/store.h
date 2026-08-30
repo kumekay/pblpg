@@ -45,7 +45,9 @@ void store_request_new(void);
 void store_request_open(const char *id);
 void store_send_message(const char *id, const char *text);
 
-// UI refresh hooks
+// UI hooks
 typedef void (*StoreRefreshCb)(void);
+typedef void (*StoreCompletionCb)(void);
 void store_set_list_cb(StoreRefreshCb cb);
 void store_set_detail_cb(StoreRefreshCb cb);
+void store_set_completion_cb(StoreCompletionCb cb);

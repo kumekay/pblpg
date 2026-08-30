@@ -8,6 +8,7 @@ static Window *s_list_window;
 static void prv_init(void) {
   store_set_list_cb(list_window_refresh);
   store_set_detail_cb(detail_window_refresh);
+  store_set_completion_cb(detail_window_notify_reply_complete);
 
   s_list_window = list_window_create();
   window_stack_push(s_list_window, true);

@@ -23,10 +23,9 @@ typedef struct {
 static Msg s_msgs[MSG_MAX];
 static int s_num_msgs = 0;
 
-// Reply assembly (chunked)
-static char s_chunks[REPLY_CHUNK_MAX][512];
-static bool s_chunk_recv[REPLY_CHUNK_MAX];
-static int s_chunk_total = 0;
+// Reply assembly (chunked): chunks arrive in order (the phone side uses a
+// sequential, ACKed send queue), so they are appended straight into the pool
+// and no per-chunk buffering is needed.
 static bool s_reply_pending = false;
 static int s_scroll_hint = SCROLL_HINT_NONE;
 
@@ -152,8 +151,6 @@ static void prv_clear_transcript(void) {
   s_pool_len = 0;
   s_num_msgs = 0;
   s_reply_pending = false;
-  s_chunk_total = 0;
-  memset(s_chunk_recv, 0, sizeof(s_chunk_recv));
 }
 
 void store_set_open(int index) {
@@ -230,23 +227,10 @@ void store_mark_failed(const char *error) {
 // ---------------------------------------------------------------------------
 
 static void prv_finish_reply(void) {
-  // The phone side sends the whole session history as one plain-text
+  // The phone side sends the whole session history as a plain-text
   // transcript ("You: ..." / "Agent: ..." blocks separated by blank
-  // lines). Replace the pool and split it into role-tagged messages.
-  s_pool[0] = '\0';
-  s_pool_len = 0;
-  s_num_msgs = 0;
-  size_t off = 0;
-  for (int i = 0; i < s_chunk_total; i++) {
-    size_t cl = strlen(s_chunks[i]);
-    if (off + cl + 1 > sizeof(s_pool)) cl = sizeof(s_pool) - off - 1;
-    if (cl == 0) continue;
-    memcpy(s_pool + off, s_chunks[i], cl);
-    off += cl;
-  }
-  s_pool[off] = '\0';
-  s_pool_len = off;
-
+  // lines), already appended chunk-by-chunk into s_pool. Split it into
+  // role-tagged messages.
   char *p = s_pool;
   while (*p) {
     char *nl = strstr(p, "\n\n");
@@ -395,18 +379,13 @@ static void prv_inbox_received(DictionaryIterator *iter, void *ctx) {
       int ci = (int)idx_t->value->uint16;
       int total = (int)count_t->value->uint16;
       if (total < 1 || total > REPLY_CHUNK_MAX || ci < 0 || ci >= total) break;
-      if (ci == 0 || total != s_chunk_total) {
-        s_chunk_total = total;
-        memset(s_chunk_recv, 0, sizeof(s_chunk_recv));
+      if (ci == 0) {
+        s_pool[0] = '\0';
+        s_pool_len = 0;
+        s_num_msgs = 0;
       }
-      strncpy(s_chunks[ci], text_t->value->cstring, sizeof(s_chunks[ci]) - 1);
-      s_chunks[ci][sizeof(s_chunks[ci]) - 1] = '\0';
-      s_chunk_recv[ci] = true;
-      bool complete = true;
-      for (int i = 0; i < s_chunk_total; i++) {
-        if (!s_chunk_recv[i]) { complete = false; break; }
-      }
-      if (complete) {
+      prv_pool_append(text_t->value->cstring, strlen(text_t->value->cstring));
+      if (ci == total - 1) {
         prv_finish_reply();
         // Opening an idle thread starts at the transcript top. For a live
         // turn, OP_STATUS(DONE) follows and targets the newest reply instead.

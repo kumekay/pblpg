@@ -28,10 +28,16 @@ var CONFIG = {
   chunkMaxBytes: 440
 };
 
+// Secrets live in config.local.js (gitignored); see config.local.js.example.
+// Values saved via the phone config page (localStorage) win when present.
+var localConfig = require('./config.local.js');
+
 function loadConfig() {
+  CONFIG.baseUrl = localConfig.baseUrl || '';
+  CONFIG.apiKey = localConfig.apiKey || '';
   try {
-    CONFIG.baseUrl = localStorage.getItem(STORAGE.baseUrl) || '';
-    CONFIG.apiKey = localStorage.getItem(STORAGE.apiKey) || '';
+    CONFIG.baseUrl = localStorage.getItem(STORAGE.baseUrl) || CONFIG.baseUrl;
+    CONFIG.apiKey = localStorage.getItem(STORAGE.apiKey) || CONFIG.apiKey;
   } catch (e) { /* no localStorage */ }
 }
 
@@ -113,17 +119,29 @@ var sendQueue = [];
 var sending = false;
 
 function queueSend(dict) {
-  sendQueue.push(dict);
+  sendQueue.push({ dict: dict, retries: 0 });
   pump();
 }
 
 function pump() {
   if (sending || sendQueue.length === 0) return;
   sending = true;
-  var dict = sendQueue.shift();
-  Pebble.sendAppMessage(dict,
+  var item = sendQueue.shift();
+  Pebble.sendAppMessage(item.dict,
     function () { sending = false; pump(); },
-    function (e) { log('send failed: ' + JSON.stringify(dict)); sending = false; pump(); });
+    function (e) {
+      sending = false;
+      // The watch may not have app_message open yet right after launch;
+      // retry briefly before giving up.
+      if (item.retries < 5) {
+        item.retries++;
+        sendQueue.unshift(item);
+        setTimeout(pump, 700);
+      } else {
+        log('send failed: ' + JSON.stringify(item.dict));
+        pump();
+      }
+    });
 }
 
 function sendError(message) {

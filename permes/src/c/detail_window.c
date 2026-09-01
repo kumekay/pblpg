@@ -25,7 +25,6 @@ static DictationSession *s_dictation;
 static int s_scroll_offset = 0;   // >= 0: pixels scrolled down
 static bool s_dictating = false;
 static bool s_dictate_on_appear = false;
-static bool s_leave_on_dictation_failure = false;
 
 static void prv_msg_update_proc(Layer *layer, GContext *ctx) {
   MsgLayerData *d = (MsgLayerData *)layer_get_data(layer);
@@ -183,15 +182,12 @@ static void prv_send_dictated(char *transcription) {
 static void prv_dictation_cb(DictationSession *session, DictationSessionStatus status,
                              char *transcription, void *ctx) {
   s_dictating = false;
-  // The native dictation UI reports BACK through several failure statuses
-  // depending on whether listening/transcription had already started.
-  bool leave = s_leave_on_dictation_failure &&
-               status != DictationSessionStatusSuccess;
-  s_leave_on_dictation_failure = false;
+  // On failure (BACK cancel, no speech, ...) the system has already popped
+  // the voice window; the user is back on this thread screen and can BACK
+  // out to the list as usual. Popping here ourselves would race the system's
+  // own BACK-button window popping.
   if (status == DictationSessionStatusSuccess && transcription && transcription[0]) {
     prv_send_dictated(transcription);
-  } else if (leave && window_stack_get_top_window() == s_window) {
-    window_stack_pop(true);
   }
 }
 
@@ -199,17 +195,16 @@ static void prv_dictation_cb(DictationSession *session, DictationSessionStatus s
 // Clicks
 // ---------------------------------------------------------------------------
 
-static void prv_start_dictation(bool leave_on_failure) {
+static void prv_start_dictation(void) {
   if (s_dictating) return;
   Thread *th = store_open_thread();
   if (!th || (!th->id[0] && th->active)) return;
   s_dictating = true;
-  s_leave_on_dictation_failure = leave_on_failure;
   dictation_session_start(s_dictation);
 }
 
 static void prv_select_click(ClickRecognizerRef recognizer, void *ctx) {
-  prv_start_dictation(false);
+  prv_start_dictation();
 }
 
 static void prv_up_click(ClickRecognizerRef recognizer, void *ctx) {
@@ -254,7 +249,7 @@ static void prv_window_load(Window *window) {
 static void prv_window_appear(Window *window) {
   if (!s_dictate_on_appear) return;
   s_dictate_on_appear = false;
-  prv_start_dictation(true);
+  prv_start_dictation();
 }
 
 static void prv_window_unload(Window *window) {

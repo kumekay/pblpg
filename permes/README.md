@@ -5,25 +5,33 @@ Speak on the watch (Pebble dictation, recognized by the phone app), the agent
 runs on the host, and the reply is rendered on the watch. Multiple hermes
 sessions = multiple parallel threads.
 
-Target: **Pebble Time 2 (emery / board "obelix")**, 200×228 color.
+Target: every Pebble with a microphone — **Pebble Time 2 (emery)**,
+**Pebble Round 2 (gabbro)**, **Pebble 2 Duo (flint)**, **Pebble 2 (diorite)**,
+**Pebble Time (basalt)** and **Pebble Time Round (chalk)**; the primary
+target remains emery (board "obelix", 200×228 color).
 
 ## Screenshots
 
-| Threads | Conversation |
-|---|---|
-| <img src="screenshots/thread-list.png" width="200" alt="Hermes thread list on Pebble Time 2"> | <img src="screenshots/conversation.png" width="200" alt="Hermes conversation on Pebble Time 2"> |
+| Platform | Threads | Conversation |
+|---|---|---|
+| emery (Time 2) | <img src="screenshots/emery_thread-list.png" width="140" alt="Hermes thread list on Pebble Time 2"> | <img src="screenshots/emery_conversation.png" width="140" alt="Hermes conversation on Pebble Time 2"> |
+| gabbro (Round 2) | <img src="screenshots/gabbro_thread-list.png" width="140" alt="Hermes thread list on Pebble Round 2"> | <img src="screenshots/gabbro_conversation.png" width="140" alt="Hermes conversation on Pebble Round 2"> |
+| flint (2 Duo) | <img src="screenshots/flint_thread-list.png" width="140" alt="Hermes thread list on Pebble 2 Duo"> | <img src="screenshots/flint_conversation.png" width="140" alt="Hermes conversation on Pebble 2 Duo"> |
+| diorite (Pebble 2) | <img src="screenshots/diorite_thread-list.png" width="140" alt="Hermes thread list on Pebble 2"> | <img src="screenshots/diorite_conversation.png" width="140" alt="Hermes conversation on Pebble 2"> |
+| basalt (Pebble Time) | <img src="screenshots/basalt_thread-list.png" width="140" alt="Hermes thread list on Pebble Time"> | <img src="screenshots/basalt_conversation.png" width="140" alt="Hermes conversation on Pebble Time"> |
+| chalk (Time Round) | <img src="screenshots/chalk_thread-list.png" width="140" alt="Hermes thread list on Pebble Time Round"> | <img src="screenshots/chalk_conversation.png" width="140" alt="Hermes conversation on Pebble Time Round"> |
 
 ## Architecture
 
 ```
 Watch (C)  ⇄  Phone (Pebble app, src/pkjs)  ⇄  HTTPS  ⇄  hermes api_server
             AppMessage (protocol.h)         https://<your-hermes-front>/
-                                                        → mac LAN IP:8642
 ```
 
 - **Watch side** (`src/c/`): launches straight into dictation for a new
-  local draft; BACK reveals the thread list (MenuLayer). Thread views use a
-  ScrollLayer for replies, with SELECT starting dictation again.
+  local draft; BACK from dictation returns to the thread screen and BACK
+  again reveals the thread list (MenuLayer). Thread views use a ScrollLayer
+  for replies, with SELECT starting dictation again.
 - **Phone side** (`src/pkjs/index.js`): talks to hermes, polls async runs,
   cleans markdown, chunks replies for the watch.
 - **hermes side**: gateway `api_server` platform (OpenAI-compatible REST),
@@ -59,10 +67,17 @@ as ≤8 UTF-8-safe chunks of ≤440 bytes; the watch assembles them.
 ## Build & run
 
 ```sh
-pebble build
+pebble build                        # builds emery + diorite + basalt + chalk
 pebble install --emulator emery     # boots QEMU + pypkjs (real pkjs runtime!)
 pebble logs --emulator emery        # C + pkjs logs
 ```
+
+The same commands work with `--emulator gabbro|flint|diorite|basalt|chalk`
+to test the other mic platforms in QEMU.
+
+Screenshots never use real agent data: `tools/mock_hermes.py` serves canned
+English threads on `127.0.0.1:8742` — point `config.local.js` at it (and
+start it) before capturing.
 
 On a phone, open the gear beside **permes**, enter the public HTTPS hermes URL
 and Bearer key, then tap **Save**. The hosted page is
@@ -80,17 +95,10 @@ pebble screenshot --no-open --emulator emery shot.png
 
 ### Pointing pkjs at a local hermes (QEMU testing)
 
-pkjs reads its configuration from localStorage; pypkjs persists it to
-`~/Library/Application Support/Pebble SDK/4.33.1/emery/localstorage/<uuid>`
-(dbm.dumb format). Seed before booting the emulator:
-
-```python
-import dbm.dumb
-d = dbm.dumb.open("<...>/localstorage/2d1ee2c8-d0a5-415f-a7e0-213a7250e42b", "c")
-d["permes_base_url"] = "http://127.0.0.1:8642"
-d["permes_api_key"] = "YOUR_API_SERVER_KEY"
-d.close()
-```
+When localStorage is empty (fresh emulator), pkjs falls back to the
+gitignored `src/pkjs/config.local.js` (see `config.local.js.example`) —
+edit it and rebuild to point pypkjs at any URL/key without the config page.
+Values saved via the phone config page (localStorage) win when present.
 
 Why not just use the public HTTPS front in QEMU? macOS Sequoia+
 Local Network Privacy blocks *third-party* binaries (like pypkjs's uv
@@ -104,11 +112,12 @@ spawns the pebble tool.
 ## UX notes
 
 - Launch and **New thread** start recording immediately; rejecting that
-  dictation with BACK returns to the thread list.
+  dictation with BACK returns to the thread screen, and BACK again reveals
+  the thread list.
 - SELECT on a thread = speak; UP/DOWN scroll the reply; BACK to the list.
 - Threads created from the watch get `system_prompt` asking for short,
-  plain-text replies (watch-sized). Existing threads (e.g. telegram) get
-  markdown-stripped, truncated replies.
+  plain-text replies (watch-sized). Existing threads created outside the
+  watch get markdown-stripped, truncated replies.
 - Replies for the open thread render live; other threads keep running in
   parallel (pkjs polls each run; list shows "thinking..." via ACTIVE flag).
 - A completed reply gives one short vibration only while its thread detail

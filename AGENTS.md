@@ -70,11 +70,12 @@ Watchapp for a **Hermes agent** (Nous Research hermes-agent running on this
 host). C watchapp + pkjs bridge. UUID is fixed in `package.json` —
 never regenerate it.
 
-- hermes gateway exposes `platforms.api_server` (REST, Bearer key) on
-  `0.0.0.0:8642`, fronted publicly by an HTTPS host (private — not in this
-  repo). Config lives in `~/.hermes/config.yaml`; the phone app reads URL +
-  key from `src/pkjs/config.local.js` (gitignored; see
-  `config.local.js.example`).
+- hermes gateway exposes `platforms.api_server` (REST, Bearer key); the
+  public URL/key are machine-local and never committed. The phone app reads
+  URL + key from `src/pkjs/config.local.js` (gitignored; see
+  `config.local.js.example`), or from the phone config page (localStorage
+  wins when set). `permes/tools/mock_hermes.py` serves canned fake data for
+  emulator testing/screenshots.
 - Threads = hermes sessions (`/api/sessions`); turns = async `/v1/runs`
   polled from pkjs; dictation via watch `DictationSession`.
 - AppMessage protocol: `src/c/protocol.h` + `messageKeys` in package.json.

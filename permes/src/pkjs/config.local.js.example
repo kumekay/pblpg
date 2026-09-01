@@ -1,0 +1,8 @@
+// Local secrets — NOT committed (see .gitignore).
+// Copy to config.local.js and fill in your values, or leave the mock
+// (tools/mock_hermes.py) for offline QEMU testing. Values saved via the
+// phone config page (localStorage) win over this file.
+module.exports = {
+  baseUrl: 'https://your-hermes-front.example.com',
+  apiKey: 'YOUR_API_SERVER_KEY'
+};

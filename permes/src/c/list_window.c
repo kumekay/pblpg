@@ -73,7 +73,10 @@ static void prv_window_load(Window *window) {
   text_layer_set_text(s_error_title, "Setup required");
   layer_add_child(root, text_layer_get_layer(s_error_title));
 
-  s_error_body = text_layer_create(GRect(12, 70, bounds.size.w - 24, 110));
+  // Height is bounds-relative so the error text fits on shorter displays
+  // (basalt 200x168, chalk 180x180) as well as emery's 200x228.
+  s_error_body = text_layer_create(
+      GRect(12, 70, bounds.size.w - 24, bounds.size.h - 70 - 8));
   text_layer_set_background_color(s_error_body, GColorWhite);
   text_layer_set_text_color(s_error_body, GColorBlack);
   text_layer_set_font(s_error_body, fonts_get_system_font(FONT_KEY_GOTHIC_24));

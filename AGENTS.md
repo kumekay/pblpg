@@ -61,6 +61,40 @@ Emulator notes (from the skill, worth following):
 - Install can land on the launcher with the app highlighted but not launched —
   that looks like a crash but isn't; press select via `emu-button`.
 - If screenshots show the wrong app or install times out: `pebble kill && pebble wipe`, then reinstall.
+- `pebble transcribe` is a *blocking server* (answers the watch's voice
+  session) — run it in the background, and start it AFTER `pebble install`:
+  an emulator booted by transcribe first may never run the app's JS.
+- Button injection over the pypkjs relay drops roughly half of presses.
+  Verify each step with a screenshot and retry single clicks; long repeat
+  chains overshoot (each delivered BACK pops one window).
+- Firmware BACK pops the top window on button-down. Apps must NOT also pop
+  in dictation-failure callbacks — double-pop exits the whole app.
+- Run at most ONE `pebble logs` at a time; a stale process silently holds
+  the stream and newer attaches get empty files.
+- QEMU firmware fonts have no Cyrillic — capture screenshots against fake
+  English data (e.g. `permes/tools/mock_hermes.py`), never real sessions.
+- Legacy platforms (basalt/chalk/diorite/flint) have a 64KB app heap vs
+  emery's 128KB; the dictation UI needs headroom. Read the build's memory
+  report and keep static buffers small.
+- Waf does not track `config.local.js`: delete `build/pebble-js-app.js` to
+  force a JS re-bundle after editing it. Phone-side config persists per
+  platform in `~/Library/Application Support/Pebble SDK/<ver>/<platform>/localstorage/`
+  — remove it (emulator off) when testing config fallbacks. `pebble wipe`
+  is global; prefer deleting the one platform dir.
+
+## Releases & store
+
+- Release PBWs must not bundle local secrets: blank
+  `src/pkjs/config.local.js`, rebuild (delete `build/pebble-js-app.js`
+  first), attach the PBW, then restore the local config.
+- GitHub: bump `version` in `package.json`, commit, `git tag vX.Y.Z`,
+  `gh release create vX.Y.Z build/<app>.pbw`.
+- Rebble store: `pebble publish --non-interactive --no-gif-all-platforms`
+  with `--screenshots` (files must be prefixed with the platform name) and
+  `--replace-screenshots` to swap stale shots. The store rejects re-uploads
+  of an existing version (bump instead) and has no CLI release delete.
+  Screenshot sizes = native framebuffer per platform; store icons are
+  80×80 / 144×144 (render from the app SVG with `qlmanage -t -s N`).
 
 ## Projects
 
@@ -68,7 +102,9 @@ Emulator notes (from the skill, worth following):
 
 Watchapp for a **Hermes agent** (Nous Research hermes-agent running on this
 host). C watchapp + pkjs bridge. UUID is fixed in `package.json` —
-never regenerate it.
+never regenerate it. Targets all six mic platforms (emery, gabbro, flint,
+diorite, basalt, chalk — flint/gabbro DO have display+mic in this SDK);
+screenshots are captured against `tools/mock_hermes.py`, never real data.
 
 - hermes gateway exposes `platforms.api_server` (REST, Bearer key); the
   public URL/key are machine-local and never committed. The phone app reads

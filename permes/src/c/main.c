@@ -6,6 +6,12 @@
 static Window *s_list_window;
 
 static void prv_init(void) {
+#if defined(PBL_TOUCH)
+  // Let the system scroll the thread list and transcript by finger on touch
+  // watches (Pebble Time 2).
+  app_touch_navigation_enable(true);
+#endif
+
   store_set_list_cb(list_window_refresh);
   store_set_detail_cb(detail_window_refresh);
   store_set_completion_cb(detail_window_notify_reply_complete);

@@ -167,6 +167,12 @@ static void prv_scroll_by(int delta) {
   scroll_layer_set_content_offset(s_scroll, GPoint(0, -s_scroll_offset), true);
 }
 
+// Touch scrolling moves the layer without our buttons. Keep s_scroll_offset in
+// sync so the next button press or re-render starts from where the finger left it.
+static void prv_offset_changed(ScrollLayer *scroll, void *ctx) {
+  s_scroll_offset = -scroll_layer_get_content_offset(scroll).y;
+}
+
 // ---------------------------------------------------------------------------
 // Dictation
 // ---------------------------------------------------------------------------
@@ -239,6 +245,7 @@ static void prv_window_load(Window *window) {
   s_scroll = scroll_layer_create(scroll_frame);
   scroll_layer_set_callbacks(s_scroll, (ScrollLayerCallbacks) {
     .click_config_provider = prv_click_config,
+    .content_offset_changed_handler = prv_offset_changed,
   });
   scroll_layer_set_click_config_onto_window(s_scroll, window);
   layer_add_child(root, scroll_layer_get_layer(s_scroll));

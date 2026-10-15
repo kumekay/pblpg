@@ -22,7 +22,8 @@ var STORAGE = {
   apiKey: 'permes_api_key',
   model: 'permes_model',
   effort: 'permes_effort',
-  systemPrompt: 'permes_system_prompt'
+  systemPrompt: 'permes_system_prompt',
+  fontSize: 'permes_font_size'
 };
 
 var CONFIG = {
@@ -31,6 +32,7 @@ var CONFIG = {
   model: '',          // '' = gateway default; 'provider::model' or a hermes model name
   effort: '',         // '' = gateway default
   systemPrompt: '',
+  fontSize: '',       // '' = medium; 'small' or 'large'
   maxThreads: 16,
   pollMs: 5000,
   runTimeoutMs: 15 * 60 * 1000,
@@ -53,12 +55,14 @@ function loadConfig() {
   CONFIG.model = '';
   CONFIG.effort = '';
   CONFIG.systemPrompt = WATCH_SYSTEM_PROMPT;
+  CONFIG.fontSize = '';
   try {
     CONFIG.baseUrl = localStorage.getItem(STORAGE.baseUrl) || CONFIG.baseUrl;
     CONFIG.apiKey = localStorage.getItem(STORAGE.apiKey) || CONFIG.apiKey;
     CONFIG.model = localStorage.getItem(STORAGE.model) || '';
     CONFIG.effort = localStorage.getItem(STORAGE.effort) || '';
     CONFIG.systemPrompt = localStorage.getItem(STORAGE.systemPrompt) || WATCH_SYSTEM_PROMPT;
+    CONFIG.fontSize = localStorage.getItem(STORAGE.fontSize) || '';
   } catch (e) { /* no localStorage */ }
 }
 
@@ -76,6 +80,7 @@ function saveConfig(data) {
   var model = String(data.model || '').trim();
   var effort = String(data.effort || '').trim();
   var systemPrompt = String(data.systemPrompt || '').trim();
+  var fontSize = FONT_SIZE.hasOwnProperty(data.fontSize) ? data.fontSize : '';
 
   try {
     localStorage.setItem(STORAGE.baseUrl, baseUrl);
@@ -83,6 +88,7 @@ function saveConfig(data) {
     storeOptional(STORAGE.model, model, '');
     storeOptional(STORAGE.effort, effort, '');
     storeOptional(STORAGE.systemPrompt, systemPrompt, WATCH_SYSTEM_PROMPT);
+    storeOptional(STORAGE.fontSize, fontSize, '');
   } catch (e) {
     log('could not persist configuration');
     return false;
@@ -100,9 +106,10 @@ loadConfig();
 var OP = {
   LIST: 1, NEW: 2, SEND: 3, OPEN: 4,
   LIST_BEGIN: 10, THREAD: 11, LIST_END: 12, NEW_OK: 13, SEND_OK: 14,
-  REPLY: 15, STATUS: 16, ERROR: 17, TITLE: 18
+  REPLY: 15, STATUS: 16, ERROR: 17, TITLE: 18, SETTINGS: 19
 };
 var STATUS = { RUNNING: 1, DONE: 2, FAILED: 3 };
+var FONT_SIZE = { small: 0, '': 1, large: 2 };
 
 // runId -> { threadId, startedAt }
 var runs = {};
@@ -291,6 +298,11 @@ function sendTranscript(threadId, done) {
     });
 }
 
+// The watch saves the value, so it keeps the size when the phone is away.
+function sendSettings() {
+  queueSend({ OP: OP.SETTINGS, FONT_SIZE: FONT_SIZE[CONFIG.fontSize] });
+}
+
 function sendStatus(threadId, status) {
   queueSend({ OP: OP.STATUS, THREAD_ID: threadId, STATUS: status });
 }
@@ -477,6 +489,7 @@ function openThread(threadId) {
 
 Pebble.addEventListener('ready', function () {
   log('ready');
+  sendSettings();
   if (isConfigured()) {
     loadRuns();
     pushThreadList();
@@ -514,6 +527,7 @@ Pebble.addEventListener('showConfiguration', function () {
       model: CONFIG.model,
       effort: CONFIG.effort,
       systemPrompt: CONFIG.systemPrompt,
+      fontSize: CONFIG.fontSize,
       defaultSystemPrompt: WATCH_SYSTEM_PROMPT,
       models: err ? null : modelChoices(data)
     }));
@@ -541,6 +555,7 @@ Pebble.addEventListener('webviewclosed', function (e) {
     return;
   }
   log('configuration saved');
+  sendSettings();
   loadRuns();
   pushThreadList();
 });

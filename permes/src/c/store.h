@@ -41,6 +41,9 @@ bool store_reply_pending(void);    // chunks arriving right now
 void store_mark_failed(const char *error);
 void store_append_you(const char *text);  // locally echo the dictated message
 
+// Chat font size from the phone settings (FONT_SIZE_* in protocol.h)
+int store_font_size(void);
+
 // Scroll hints for the detail window (consumed on read)
 #define SCROLL_HINT_NONE 0
 #define SCROLL_HINT_TOP 1

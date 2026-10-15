@@ -9,6 +9,9 @@ static int s_open_index = -1;
 static Thread s_draft;
 static char s_error[201];
 
+#define PERSIST_KEY_FONT_SIZE 1
+static int s_font_size = -1;  // -1 = not read from persist yet
+
 // Transcript storage: all messages live in one flat pool; the Msg index
 // records each message's offset, length and role.
 static char s_pool[REPLY_MAX + 1];
@@ -406,6 +409,17 @@ static void prv_inbox_received(DictionaryIterator *iter, void *ctx) {
       break;
     }
 
+    case OP_SETTINGS: {
+      Tuple *font_t = t(iter, MESSAGE_KEY_FONT_SIZE);
+      if (!font_t) break;
+      int size = (int)font_t->value->uint8;
+      if (size < FONT_SIZE_SMALL || size > FONT_SIZE_LARGE || size == store_font_size()) break;
+      s_font_size = size;
+      persist_write_int(PERSIST_KEY_FONT_SIZE, size);
+      if (s_detail_cb) s_detail_cb();
+      break;
+    }
+
     default:
       break;
   }
@@ -422,6 +436,15 @@ static void prv_inbox_dropped(AppMessageResult reason, void *ctx) {
 void store_set_list_cb(StoreRefreshCb cb) { s_list_cb = cb; }
 void store_set_detail_cb(StoreRefreshCb cb) { s_detail_cb = cb; }
 void store_set_completion_cb(StoreCompletionCb cb) { s_completion_cb = cb; }
+
+// Read lazily: main.c renders the first screen before store_init().
+int store_font_size(void) {
+  if (s_font_size < 0) {
+    s_font_size = persist_exists(PERSIST_KEY_FONT_SIZE)
+        ? persist_read_int(PERSIST_KEY_FONT_SIZE) : FONT_SIZE_MEDIUM;
+  }
+  return s_font_size;
+}
 
 void store_init(void) {
   app_message_register_inbox_received(prv_inbox_received);

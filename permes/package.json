@@ -42,7 +42,8 @@
       "INDEX": 4,
       "COUNT": 5,
       "STATUS": 6,
-      "ACTIVE": 7
+      "ACTIVE": 7,
+      "FONT_SIZE": 8
     },
     "resources": {
       "media": [

@@ -1,5 +1,6 @@
 #include "detail_window.h"
 #include "store.h"
+#include "protocol.h"
 
 #define DICTATION_BUF_SIZE 512
 #define SCROLL_STEP 44
@@ -70,6 +71,18 @@ static int prv_add_msg(const char *text, GFont font, GColor bg, GColor fg,
   return h;
 }
 
+// Chat text font for the size chosen in the phone settings.
+static GFont prv_body_font(bool bold) {
+  switch (store_font_size()) {
+    case FONT_SIZE_SMALL:
+      return fonts_get_system_font(bold ? FONT_KEY_GOTHIC_18_BOLD : FONT_KEY_GOTHIC_18);
+    case FONT_SIZE_LARGE:
+      return fonts_get_system_font(bold ? FONT_KEY_GOTHIC_28_BOLD : FONT_KEY_GOTHIC_28);
+    default:
+      return fonts_get_system_font(bold ? FONT_KEY_GOTHIC_24_BOLD : FONT_KEY_GOTHIC_24);
+  }
+}
+
 static void prv_render(void) {
   Thread *th = store_open_thread();
   if (!th || !s_window || !s_title_layer || !s_scroll) return;
@@ -95,7 +108,7 @@ static void prv_render(void) {
 
   if (n == 0 && !busy) {
     prv_add_msg("Press SELECT and speak to the agent.",
-                fonts_get_system_font(FONT_KEY_GOTHIC_24),
+                prv_body_font(false),
                 GColorClear, GColorBlack,
                 (GEdgeInsets){0, 4, 0, 4}, y, content_w);
   }
@@ -105,7 +118,7 @@ static void prv_render(void) {
     const char *text = store_msg(i, &role);
     if (role == MSG_ROLE_USER) {
       // User prompts get a shaded bubble so they stand out from replies
-      y += prv_add_msg(text, fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD),
+      y += prv_add_msg(text, prv_body_font(true),
                        GColorLightGray, GColorBlack,
                        (GEdgeInsets){8, 12, 8, 12}, y, content_w);
     } else {
@@ -116,7 +129,7 @@ static void prv_render(void) {
         has_response_start = true;
       }
       GColor bg = (role == MSG_ROLE_SYSTEM) ? GColorMelon : GColorClear;
-      y += prv_add_msg(text, fonts_get_system_font(FONT_KEY_GOTHIC_24),
+      y += prv_add_msg(text, prv_body_font(false),
                        bg, GColorBlack,
                        (GEdgeInsets){2, 4, 8, 4}, y, content_w);
     }
@@ -125,7 +138,7 @@ static void prv_render(void) {
 
   if (busy) {
     y += prv_add_msg("thinking\u2026",
-                     fonts_get_system_font(FONT_KEY_GOTHIC_24),
+                     prv_body_font(false),
                      GColorClear, GColorDarkGray,
                      (GEdgeInsets){2, 4, 8, 4}, y, content_w);
   } else if (n > 0) {

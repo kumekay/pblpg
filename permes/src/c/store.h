@@ -17,6 +17,7 @@
 typedef struct {
   char id[THREAD_ID_LEN];
   char title[THREAD_TITLE_LEN];
+  int32_t last_active;  // unix time of the last message, 0 = unknown
   bool active;  // run in progress on this thread
   bool used;
 } Thread;

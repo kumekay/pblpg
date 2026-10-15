@@ -286,6 +286,7 @@ static void prv_inbox_received(DictionaryIterator *iter, void *ctx) {
       Tuple *id_t = t(iter, MESSAGE_KEY_THREAD_ID);
       Tuple *title_t = t(iter, MESSAGE_KEY_TITLE);
       Tuple *active_t = t(iter, MESSAGE_KEY_ACTIVE);
+      Tuple *time_tuple = t(iter, MESSAGE_KEY_TIME);
       if (!idx_t || !id_t) break;
       int idx = (int)idx_t->value->uint16;
       if (idx < 0 || idx >= MAX_THREADS) break;
@@ -295,6 +296,7 @@ static void prv_inbox_received(DictionaryIterator *iter, void *ctx) {
       strncpy(th->id, id_t->value->cstring, THREAD_ID_LEN - 1);
       if (title_t) strncpy(th->title, title_t->value->cstring, THREAD_TITLE_LEN - 1);
       th->active = active_t ? active_t->value->uint8 != 0 : false;
+      th->last_active = time_tuple ? time_tuple->value->int32 : 0;
       if (idx + 1 > s_num_threads) s_num_threads = idx + 1;
       if (s_list_cb) s_list_cb();
       break;

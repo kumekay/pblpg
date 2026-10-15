@@ -332,13 +332,16 @@ function pushThreadList() {
       var s = data.data[i];
       if (s.archived || s.hidden) continue;
       var title = s.title || s.preview || s.id;
-      items.push({ id: s.id, title: String(title).slice(0, 60), active: !!active[s.id] });
+      items.push({
+        id: s.id, title: String(title).slice(0, 60), active: !!active[s.id],
+        time: Math.floor(Number(s.last_active || s.started_at) || 0)
+      });
     }
     queueSend({ OP: OP.LIST_BEGIN, COUNT: items.length });
     for (var j = 0; j < items.length; j++) {
       queueSend({
         OP: OP.THREAD, INDEX: j, THREAD_ID: items[j].id,
-        TITLE: items[j].title, ACTIVE: items[j].active ? 1 : 0
+        TITLE: items[j].title, ACTIVE: items[j].active ? 1 : 0, TIME: items[j].time
       });
     }
     queueSend({ OP: OP.LIST_END });

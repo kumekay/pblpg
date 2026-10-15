@@ -68,7 +68,7 @@ thread's history automatically (validated).
 ### AppMessage protocol
 
 See `src/c/protocol.h` (OP codes) and `messageKeys` in `package.json`
-(`OP, THREAD_ID, TEXT, TITLE, INDEX, COUNT, STATUS, ACTIVE, FONT_SIZE`). App launch and
+(`OP, THREAD_ID, TEXT, TITLE, INDEX, COUNT, STATUS, ACTIVE, FONT_SIZE, TIME`). App launch and
 **New thread** both open a local draft and start recording immediately; no
 remote Hermes session is created until the first dictated message is
 submitted. It then shows an interim `Watch [date

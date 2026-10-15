@@ -21,11 +21,13 @@ Then point pkjs at http://127.0.0.1:<port> (config.local.js or config page).
 import json
 import re
 import sys
+import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 SESSIONS = [
     {
         "id": "mock_hike",
+        "age": 4 * 60,  # seconds since the last message
         "title": "Weekend hike essentials",
         "messages": [
             {"role": "user",
@@ -39,6 +41,7 @@ SESSIONS = [
     },
     {
         "id": "mock_mountain",
+        "age": 3 * 3600,  # seconds since the last message
         "title": "Tallest mountain in Europe",
         "messages": [
             {"role": "user", "content": "What is the tallest mountain in Europe?"},
@@ -49,6 +52,7 @@ SESSIONS = [
     },
     {
         "id": "mock_cycling",
+        "age": 26 * 3600,  # seconds since the last message
         "title": "Best Czech city for cycling",
         "messages": [
             {"role": "user",
@@ -60,6 +64,7 @@ SESSIONS = [
     },
     {
         "id": "mock_moon",
+        "age": 4 * 86400,  # seconds since the last message
         "title": "How many people walked on the Moon",
         "messages": [
             {"role": "user", "content": "How many people have walked on the Moon?"},
@@ -70,6 +75,7 @@ SESSIONS = [
     },
     {
         "id": "mock_greeting",
+        "age": 12 * 86400,  # seconds since the last message
         "title": "Evening greeting and time check",
         "messages": [
             {"role": "user", "content": "Hi, what time is it?"},
@@ -108,7 +114,8 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/sessions":
             self._json({"object": "list",
                         "data": [{"id": s["id"], "title": s["title"],
-                                  "message_count": len(s["messages"])}
+                                  "message_count": len(s["messages"]),
+                                  "last_active": time.time() - s["age"]}
                                  for s in SESSIONS]})
             return
         m = re.fullmatch(r"/api/sessions/([^/]+)/messages", path)

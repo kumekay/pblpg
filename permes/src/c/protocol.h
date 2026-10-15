@@ -11,7 +11,7 @@
 
 // Phone -> watch responses
 #define OP_LIST_BEGIN  10  // COUNT = number of threads that follow
-#define OP_THREAD      11  // one thread row: INDEX, THREAD_ID, TITLE, ACTIVE
+#define OP_THREAD      11  // one thread row: INDEX, THREAD_ID, TITLE, ACTIVE, TIME
 #define OP_LIST_END    12  // thread list finished
 #define OP_NEW_OK      13  // thread created: THREAD_ID, TITLE
 #define OP_SEND_OK     14  // message accepted, run started: THREAD_ID

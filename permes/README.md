@@ -68,7 +68,7 @@ thread's history automatically (validated).
 ### AppMessage protocol
 
 See `src/c/protocol.h` (OP codes) and `messageKeys` in `package.json`
-(`OP, THREAD_ID, TEXT, TITLE, INDEX, COUNT, STATUS, ACTIVE`). App launch and
+(`OP, THREAD_ID, TEXT, TITLE, INDEX, COUNT, STATUS, ACTIVE, FONT_SIZE`). App launch and
 **New thread** both open a local draft and start recording immediately; no
 remote Hermes session is created until the first dictated message is
 submitted. It then shows an interim `Watch [date
@@ -93,8 +93,10 @@ start it) before capturing.
 
 On a phone, open the gear beside **permes**, enter the public HTTPS hermes URL
 and Bearer key, then tap **Save**. The same page sets the model, the
-reasoning effort and the system prompt. pkjs handles `showConfiguration` and
+reasoning effort, the system prompt and the chat font size. pkjs handles `showConfiguration` and
 `webviewclosed`, checks the response, and stores the values locally.
+pkjs sends the font size to the watch (`OP_SETTINGS`) at start and after
+each save. The watch saves it, so it keeps the size without the phone.
 
 ### Config page
 
@@ -104,7 +106,7 @@ so each page version has its own folder:
 | Folder | Used by | Fields |
 |---|---|---|
 | `config/` (v1) | app 1.0.2 and older | URL, key |
-| `config/v2/` | current | URL, key, model, effort, system prompt |
+| `config/v2/` | current | URL, key, model, effort, system prompt, font size |
 
 Rules:
 

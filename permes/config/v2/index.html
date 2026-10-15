@@ -89,6 +89,14 @@
       <small class="hint">Added to every message you send from the watch.</small>
       <button type="button" class="secondary" id="reset-prompt">Reset to default</button>
 
+      <label for="font-size">Chat font size</label>
+      <select id="font-size">
+        <option value="small">Small</option>
+        <option value="">Medium</option>
+        <option value="large">Large</option>
+      </select>
+      <small class="hint">Text size of messages on the watch.</small>
+
       <button type="submit">Save</button>
       <p id="error" role="alert" aria-live="polite"></p>
     </form>
@@ -105,6 +113,7 @@
       var modelHint = document.getElementById('model-hint');
       var effort = document.getElementById('effort');
       var systemPrompt = document.getElementById('system-prompt');
+      var fontSize = document.getElementById('font-size');
       var error = document.getElementById('error');
 
       // pkjs puts the current values in the fragment. Fragments are not sent
@@ -118,6 +127,7 @@
       baseUrl.value = current.baseUrl || '';
       apiKey.value = current.apiKey || '';
       effort.value = current.effort || '';
+      fontSize.value = current.fontSize || '';
       systemPrompt.value = current.systemPrompt || current.defaultSystemPrompt || '';
 
       function addOption(parent, value, label) {
@@ -192,7 +202,8 @@
           apiKey: key,
           model: (modelSelect.hidden ? modelText.value : modelSelect.value).trim(),
           effort: effort.value,
-          systemPrompt: systemPrompt.value.trim()
+          systemPrompt: systemPrompt.value.trim(),
+          fontSize: fontSize.value
         }));
         location.href = queryParam('return_to', 'pebblejs://close#') + payload;
       });

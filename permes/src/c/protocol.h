@@ -19,8 +19,14 @@
 #define OP_STATUS      16  // run status change: THREAD_ID, STATUS
 #define OP_ERROR       17  // TEXT = human-readable error
 #define OP_TITLE       18  // generated title: THREAD_ID, TITLE
+#define OP_SETTINGS    19  // watch settings: FONT_SIZE
 
 // Run status values (OP_STATUS / ACTIVE flag)
 #define STATUS_RUNNING 1   // agent is working ("thinking")
 #define STATUS_DONE    2   // final reply delivered
 #define STATUS_FAILED  3   // run failed
+
+// Chat font size (OP_SETTINGS FONT_SIZE)
+#define FONT_SIZE_SMALL  0
+#define FONT_SIZE_MEDIUM 1   // default
+#define FONT_SIZE_LARGE  2

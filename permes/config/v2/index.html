@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="color-scheme" content="light dark">
+  <meta name="referrer" content="no-referrer">
+  <title>permes settings</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #f4f1ea;
+      color: #18201c;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; }
+    main { max-width: 34rem; margin: 0 auto; padding: 2rem 1rem max(2rem, env(safe-area-inset-bottom)); }
+    h1 { margin: 0 0 .35rem; font-size: 2rem; }
+    .intro { margin: 0 0 1.75rem; color: #58615d; line-height: 1.45; }
+    label { display: block; margin: 1rem 0 .4rem; font-weight: 650; }
+    input, select, textarea {
+      width: 100%; min-height: 3rem; padding: .7rem .8rem;
+      border: 1px solid #a8afab; border-radius: .55rem;
+      background: #fff; color: #18201c; font: inherit;
+    }
+    textarea { min-height: 9rem; resize: vertical; line-height: 1.4; }
+    input:focus, select:focus, textarea:focus { border-color: #087f5b; outline: 3px solid rgba(8, 127, 91, .2); }
+    .hint { display: block; margin-top: .35rem; color: #66706b; font-size: .85rem; line-height: 1.35; }
+    button {
+      width: 100%; min-height: 3.2rem; margin-top: 1.5rem; border: 0;
+      border-radius: .55rem; background: #087f5b; color: #fff;
+      font: 700 1rem inherit; cursor: pointer;
+    }
+    button:active { background: #066b4d; }
+    button.secondary {
+      width: auto; min-height: 2.4rem; margin-top: .5rem; padding: 0 1rem;
+      background: transparent; color: #087f5b; border: 1px solid #087f5b;
+    }
+    [hidden] { display: none; }
+    #error { min-height: 1.4rem; margin: .75rem 0 0; color: #b42318; font-weight: 600; }
+    @media (prefers-color-scheme: dark) {
+      :root { background: #151a17; color: #edf3ef; }
+      .intro, .hint { color: #adb8b1; }
+      input, select, textarea { background: #242b27; border-color: #68726c; color: #fff; }
+      button.secondary { color: #63e6be; border-color: #63e6be; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>permes</h1>
+    <p class="intro">Connect your watch to the HTTPS endpoint for your hermes agent.</p>
+
+    <form id="settings">
+      <label for="base-url">Hermes URL</label>
+      <input id="base-url" name="baseUrl" type="url" inputmode="url"
+             autocomplete="url" autocapitalize="none" spellcheck="false"
+             placeholder="https://hermes.example.com" required>
+      <small class="hint">Public HTTPS front for the hermes API server. Do not include a path.</small>
+
+      <label for="api-key">Bearer API key</label>
+      <input id="api-key" name="apiKey" type="password"
+             autocomplete="off" autocapitalize="none" spellcheck="false"
+             placeholder="API_SERVER_KEY" required>
+      <small class="hint">Stored by the Pebble phone app and sent only to your hermes endpoint.</small>
+
+      <label for="model-select">Model</label>
+      <select id="model-select"></select>
+      <input id="model-text" type="text" autocapitalize="none" spellcheck="false"
+             placeholder="Gateway default" hidden>
+      <small class="hint" id="model-hint">Models your hermes gateway can use.</small>
+
+      <label for="effort">Reasoning effort</label>
+      <select id="effort">
+        <option value="">Gateway default</option>
+        <option value="none">None</option>
+        <option value="minimal">Minimal</option>
+        <option value="low">Low</option>
+        <option value="medium">Medium</option>
+        <option value="high">High</option>
+        <option value="xhigh">Extra high</option>
+        <option value="max">Max</option>
+      </select>
+      <small class="hint">Hermes ignores levels the model does not support.</small>
+
+      <label for="system-prompt">System prompt</label>
+      <textarea id="system-prompt" autocapitalize="sentences"></textarea>
+      <small class="hint">Added to every message you send from the watch.</small>
+      <button type="button" class="secondary" id="reset-prompt">Reset to default</button>
+
+      <button type="submit">Save</button>
+      <p id="error" role="alert" aria-live="polite"></p>
+    </form>
+  </main>
+
+  <script>
+    (function () {
+      'use strict';
+      var form = document.getElementById('settings');
+      var baseUrl = document.getElementById('base-url');
+      var apiKey = document.getElementById('api-key');
+      var modelSelect = document.getElementById('model-select');
+      var modelText = document.getElementById('model-text');
+      var modelHint = document.getElementById('model-hint');
+      var effort = document.getElementById('effort');
+      var systemPrompt = document.getElementById('system-prompt');
+      var error = document.getElementById('error');
+
+      // pkjs puts the current values in the fragment. Fragments are not sent
+      // in the HTTP request to the page host, which keeps the API key private.
+      var current = {};
+      if (location.hash.length > 1) {
+        try {
+          current = JSON.parse(decodeURIComponent(location.hash.substring(1))) || {};
+        } catch (e) { /* open with an empty form */ }
+      }
+      baseUrl.value = current.baseUrl || '';
+      apiKey.value = current.apiKey || '';
+      effort.value = current.effort || '';
+      systemPrompt.value = current.systemPrompt || current.defaultSystemPrompt || '';
+
+      function addOption(parent, value, label) {
+        var option = document.createElement('option');
+        option.value = value;
+        option.textContent = label;
+        parent.appendChild(option);
+      }
+
+      // Options are "provider::model", which pkjs sends as two fields.
+      var models = current.models;
+      if (models && models.providers && models.providers.length) {
+        var gatewayDefault = models.model ? ' (' + models.model + ')' : '';
+        addOption(modelSelect, '', 'Gateway default' + gatewayDefault);
+        var known = { '': true };
+        models.providers.forEach(function (provider) {
+          var group = document.createElement('optgroup');
+          group.label = provider.name || provider.slug;
+          provider.models.forEach(function (id) {
+            addOption(group, provider.slug + '::' + id, id);
+            known[provider.slug + '::' + id] = true;
+          });
+          modelSelect.appendChild(group);
+        });
+        if (current.model && !known[current.model]) {
+          addOption(modelSelect, current.model, current.model + ' (saved)');
+        }
+        modelSelect.value = current.model || '';
+      } else {
+        // No list from hermes: type the model by hand.
+        modelSelect.hidden = true;
+        modelText.hidden = false;
+        modelText.value = current.model || '';
+        modelHint.textContent = 'Could not load models from hermes. Use provider::model, ' +
+          'a model name, or leave empty for the gateway default.';
+      }
+
+      document.getElementById('reset-prompt').addEventListener('click', function () {
+        systemPrompt.value = current.defaultSystemPrompt || '';
+      });
+
+      function queryParam(name, fallback) {
+        var query = location.search.substring(1).split('&');
+        for (var i = 0; i < query.length; i++) {
+          var pair = query[i].split('=');
+          if (decodeURIComponent(pair[0] || '') === name) {
+            return decodeURIComponent(pair.slice(1).join('=') || '');
+          }
+        }
+        return fallback;
+      }
+
+      form.addEventListener('submit', function (event) {
+        event.preventDefault();
+        error.textContent = '';
+
+        var url = baseUrl.value.trim().replace(/\/+$/, '');
+        var key = apiKey.value.trim();
+        if (!/^https:\/\/[^/\s]+/i.test(url)) {
+          error.textContent = 'Enter a valid HTTPS URL.';
+          baseUrl.focus();
+          return;
+        }
+        if (!key) {
+          error.textContent = 'Enter your Bearer API key.';
+          apiKey.focus();
+          return;
+        }
+
+        var payload = encodeURIComponent(JSON.stringify({
+          baseUrl: url,
+          apiKey: key,
+          model: (modelSelect.hidden ? modelText.value : modelSelect.value).trim(),
+          effort: effort.value,
+          systemPrompt: systemPrompt.value.trim()
+        }));
+        location.href = queryParam('return_to', 'pebblejs://close#') + payload;
+      });
+    }());
+  </script>
+</body>
+</html>

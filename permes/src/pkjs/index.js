@@ -7,20 +7,30 @@
  *   POST /api/sessions                     — create thread
  *   GET  /api/sessions/{id}                — fetch generated title
  *   GET  /api/sessions/{id}/messages       — history (latest first)
- *   POST /v1/runs {input, session_id}      — start agent turn (202 + run_id)
+ *   POST /v1/runs {input, session_id, instructions, model?, provider?,
+ *                  model_options?}        — start agent turn (202 + run_id)
  *   GET  /v1/runs/{run_id}                 — poll: status/output/error
+ *   GET  /api/model/options                — models for the config page
  */
 
+// One folder per config page version. Old app builds keep the old page, so
+// never change a published version in place. See README "Config page".
 var CONFIG_PAGE_URL =
-  'https://kumekay.github.io/pblpg/permes/config/';
+  'https://kumekay.github.io/pblpg/permes/config/v2/';
 var STORAGE = {
   baseUrl: 'permes_base_url',
-  apiKey: 'permes_api_key'
+  apiKey: 'permes_api_key',
+  model: 'permes_model',
+  effort: 'permes_effort',
+  systemPrompt: 'permes_system_prompt'
 };
 
 var CONFIG = {
   baseUrl: '',
   apiKey: '',
+  model: '',          // '' = gateway default; 'provider::model' or a hermes model name
+  effort: '',         // '' = gateway default
+  systemPrompt: '',
   maxThreads: 16,
   pollMs: 5000,
   runTimeoutMs: 15 * 60 * 1000,
@@ -32,29 +42,52 @@ var CONFIG = {
 // Values saved via the phone config page (localStorage) win when present.
 var localConfig = require('./config.local.js');
 
+// Default system prompt for watch turns: keep answers watch-sized.
+var WATCH_SYSTEM_PROMPT =
+  'The user talks to you from a Pebble smartwatch with a tiny screen. ' +
+  'Keep replies SHORT (under ~600 characters), plain text, no markdown, no lists of links.';
+
 function loadConfig() {
   CONFIG.baseUrl = localConfig.baseUrl || '';
   CONFIG.apiKey = localConfig.apiKey || '';
+  CONFIG.model = '';
+  CONFIG.effort = '';
+  CONFIG.systemPrompt = WATCH_SYSTEM_PROMPT;
   try {
     CONFIG.baseUrl = localStorage.getItem(STORAGE.baseUrl) || CONFIG.baseUrl;
     CONFIG.apiKey = localStorage.getItem(STORAGE.apiKey) || CONFIG.apiKey;
+    CONFIG.model = localStorage.getItem(STORAGE.model) || '';
+    CONFIG.effort = localStorage.getItem(STORAGE.effort) || '';
+    CONFIG.systemPrompt = localStorage.getItem(STORAGE.systemPrompt) || WATCH_SYSTEM_PROMPT;
   } catch (e) { /* no localStorage */ }
 }
 
-function saveConfig(baseUrl, apiKey) {
-  baseUrl = String(baseUrl || '').trim().replace(/\/+$/, '');
-  apiKey = String(apiKey || '').trim();
+// Store a value, or remove it when it is empty or the default, so a later
+// app default still applies.
+function storeOptional(key, value, defaultValue) {
+  if (!value || value === defaultValue) localStorage.removeItem(key);
+  else localStorage.setItem(key, value);
+}
+
+function saveConfig(data) {
+  var baseUrl = String(data.baseUrl || '').trim().replace(/\/+$/, '');
+  var apiKey = String(data.apiKey || '').trim();
   if (!/^https:\/\//i.test(baseUrl) || !apiKey) return false;
+  var model = String(data.model || '').trim();
+  var effort = String(data.effort || '').trim();
+  var systemPrompt = String(data.systemPrompt || '').trim();
 
   try {
     localStorage.setItem(STORAGE.baseUrl, baseUrl);
     localStorage.setItem(STORAGE.apiKey, apiKey);
+    storeOptional(STORAGE.model, model, '');
+    storeOptional(STORAGE.effort, effort, '');
+    storeOptional(STORAGE.systemPrompt, systemPrompt, WATCH_SYSTEM_PROMPT);
   } catch (e) {
     log('could not persist configuration');
     return false;
   }
-  CONFIG.baseUrl = baseUrl;
-  CONFIG.apiKey = apiKey;
+  loadConfig();
   return true;
 }
 
@@ -63,11 +96,6 @@ function isConfigured() {
 }
 
 loadConfig();
-
-// System prompt for threads created from the watch: keep answers watch-sized.
-var WATCH_SYSTEM_PROMPT =
-  'The user talks to you from a Pebble smartwatch with a tiny screen. ' +
-  'Keep replies SHORT (under ~600 characters), plain text, no markdown, no lists of links.';
 
 var OP = {
   LIST: 1, NEW: 2, SEND: 3, OPEN: 4,
@@ -320,7 +348,7 @@ function createThread(firstMessage) {
   // Leave the server-side title empty. Hermes then derives a topic from the
   // opening message and upgrades it with its title-generation model.
   request('POST', '/api/sessions',
-    { source: 'api_server', system_prompt: WATCH_SYSTEM_PROMPT },
+    { source: 'api_server' },
     function (err, data) {
       if (err || !data || !data.session || !data.session.id) {
         sendError(err || 'could not create thread');
@@ -369,8 +397,23 @@ function loadRuns() {
   }
 }
 
+// hermes stores its own full prompt on the session, so the watch prompt goes
+// in `instructions` on every turn. It is added to that prompt, not saved.
+function runBody(threadId, text) {
+  var body = { input: text, session_id: threadId, instructions: CONFIG.systemPrompt };
+  var sep = CONFIG.model.indexOf('::');
+  if (sep > 0) {
+    body.provider = CONFIG.model.slice(0, sep);
+    body.model = CONFIG.model.slice(sep + 2);
+  } else if (CONFIG.model) {
+    body.model = CONFIG.model;
+  }
+  if (CONFIG.effort) body.model_options = { reasoning: { effort: CONFIG.effort } };
+  return body;
+}
+
 function sendMessage(threadId, text) {
-  request('POST', '/v1/runs', { input: text, session_id: threadId },
+  request('POST', '/v1/runs', runBody(threadId, text),
     function (err, data) {
       if (err || !data || !data.run_id) {
         sendError(err || 'could not start run');
@@ -444,14 +487,38 @@ Pebble.addEventListener('ready', function () {
   }
 });
 
+// Keep only providers that hermes can use, and only model ids, so the list
+// fits in the config page URL.
+function modelChoices(data) {
+  if (!data || !data.providers) return null;
+  var providers = [];
+  for (var i = 0; i < data.providers.length; i++) {
+    var p = data.providers[i];
+    if (!p.authenticated || !p.models || !p.models.length) continue;
+    providers.push({ slug: p.slug, name: p.name, models: p.models });
+  }
+  if (!providers.length) return null;
+  return { provider: data.provider || '', model: data.model || '', providers: providers };
+}
+
 Pebble.addEventListener('showConfiguration', function () {
-  // The fragment is not sent to the config page host, so the secret stays local
-  // to the phone webview while still allowing the form to restore its values.
-  var current = encodeURIComponent(JSON.stringify({
-    baseUrl: CONFIG.baseUrl,
-    apiKey: CONFIG.apiKey
-  }));
-  Pebble.openURL(CONFIG_PAGE_URL + '#' + current);
+  // Without a model list (not configured yet, gateway down) the page shows a
+  // text field for the model instead.
+  request('GET', '/api/model/options', null, function (err, data) {
+    if (err) log('model list failed: ' + err);
+    // The fragment is not sent to the config page host, so the secret stays local
+    // to the phone webview while still allowing the form to restore its values.
+    var current = encodeURIComponent(JSON.stringify({
+      baseUrl: CONFIG.baseUrl,
+      apiKey: CONFIG.apiKey,
+      model: CONFIG.model,
+      effort: CONFIG.effort,
+      systemPrompt: CONFIG.systemPrompt,
+      defaultSystemPrompt: WATCH_SYSTEM_PROMPT,
+      models: err ? null : modelChoices(data)
+    }));
+    Pebble.openURL(CONFIG_PAGE_URL + '#' + current);
+  });
 });
 
 Pebble.addEventListener('webviewclosed', function (e) {
@@ -469,7 +536,7 @@ Pebble.addEventListener('webviewclosed', function (e) {
     }
   }
 
-  if (!data || typeof data !== 'object' || !saveConfig(data.baseUrl, data.apiKey)) {
+  if (!data || typeof data !== 'object' || !saveConfig(data)) {
     log('configuration rejected');
     return;
   }

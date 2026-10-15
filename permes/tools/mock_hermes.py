@@ -11,6 +11,9 @@ permes' pkjs uses:
   POST /api/sessions                 -> create session
   POST /v1/runs                      -> start run (immediately "completed")
   GET  /v1/runs/{id}                 -> run status
+  GET  /api/model/options            -> small fake model list
+
+POST bodies are logged to stderr, so tests can check model/effort/prompt.
 
 Usage:  python3 tools/mock_hermes.py [port]     (default 8742)
 Then point pkjs at http://127.0.0.1:<port> (config.local.js or config page).
@@ -78,6 +81,19 @@ SESSIONS = [
 ]
 
 
+MODEL_OPTIONS = {
+    "provider": "openai-codex",
+    "model": "gpt-mock-1",
+    "providers": [
+        {"slug": "openai-codex", "name": "Codex Subscription", "authenticated": True,
+         "models": ["gpt-mock-1", "gpt-mock-1-mini"]},
+        {"slug": "anthropic", "name": "Anthropic", "authenticated": True,
+         "models": ["claude-mock-opus", "claude-mock-haiku"]},
+        {"slug": "nous", "name": "Nous Portal", "authenticated": False, "models": []},
+    ],
+}
+
+
 class Handler(BaseHTTPRequestHandler):
     def _json(self, obj, code=200):
         body = json.dumps(obj).encode()
@@ -105,6 +121,9 @@ class Handler(BaseHTTPRequestHandler):
             s = next((s for s in SESSIONS if s["id"] == m.group(1)), None)
             self._json({"session": {"id": s["id"], "title": s["title"]} if s else None})
             return
+        if path == "/api/model/options":
+            self._json(MODEL_OPTIONS)
+            return
         if re.fullmatch(r"/v1/runs/[^/]+", path):
             self._json({"status": "completed", "output": "Mock reply."})
             return
@@ -112,8 +131,9 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         length = int(self.headers.get("Content-Length") or 0)
-        self.rfile.read(length)
+        body = self.rfile.read(length)
         path = self.path.split("?")[0]
+        sys.stderr.write("[mock_hermes] POST %s %s\n" % (path, body.decode(errors="replace")))
         if path == "/api/sessions":
             self._json({"session": {"id": "mock_new", "title": ""}})
             return
